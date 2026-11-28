@@ -14,6 +14,7 @@ import 'package:fl_clash/core/desktop/helper_client.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/providers/connection_statistics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -87,8 +88,6 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
   double? _cpu;
   Timer? _timer;
   bool _reading = false;
-  int? _tcp;
-  int? _udp;
 
   @override
   void initState() {
@@ -132,15 +131,6 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
         } catch (_) {}
       }
       if (!mounted) return;
-      int? tcp;
-      int? udp;
-      if (ref.read(coreStatusProvider) == CoreStatus.connected) {
-        try {
-          final snapshot = await ref.read(coreHandlerProvider).getConnectionSnapshot();
-          tcp = snapshot.tcp;
-          udp = snapshot.udp;
-        } catch (_) {}
-      }
       if (!mounted || !ref.read(appVisibleProvider)) return;
       final now = _clock.elapsedMicroseconds;
       final elapsed = _lastSample == null ? 0 : now - _lastSample!;
@@ -170,8 +160,6 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
         _samples = samples;
         _lastSample = now;
         _cpu = cpu;
-        _tcp = tcp;
-        _udp = udp;
       });
     } finally {
       _reading = false;
@@ -249,6 +237,7 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
     final style = AppTextStyle.footnote.of(context);
     final heading = AppTextStyle.footnote.of(context, emphasized: true);
     final connected = ref.watch(coreStatusProvider) == CoreStatus.connected;
+    final connections = ref.watch(connectionStatisticsProvider).asData?.value;
     final running = ref.watch(runTimeProvider) != null;
     final sampledSpeed = ref.watch(trafficsProvider.select(
         (state) => state.list.safeLast(const Traffic())));
@@ -280,9 +269,9 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
             onTap: widget.onTraffic, selected: widget.trafficSelected,
             children: [
           Row(children: [
-            Expanded(child: Text('TCP ${connected ? _tcp ?? '—' : 0}',
+            Expanded(child: Text('TCP ${connected ? connections?.tcp ?? '—' : 0}',
               style: style.copyWith(color: NetworkTone.tcp.of(context)))),
-            Expanded(child: Text('UDP ${connected ? _udp ?? '—' : 0}',
+            Expanded(child: Text('UDP ${connected ? connections?.udp ?? '—' : 0}',
               textAlign: TextAlign.end,
               style: style.copyWith(color: NetworkTone.udp.of(context)))),
           ]),
