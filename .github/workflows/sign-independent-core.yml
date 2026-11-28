@@ -1,5 +1,8 @@
 name: Sign and publish independent FlClashZ core
 on:
+  push:
+    branches: [fix/zapret2-stability]
+    paths: ['.github/requests/z3-core-publish.txt']
   workflow_dispatch:
     inputs:
       source_run:
@@ -18,7 +21,7 @@ env:
   GO_VERSION: '1.27.1'
   GOWORK: 'off'
   GO111MODULE: 'off'
-  APPROVED_REQUEST_SHA: 'e6487eda493db43a3fa07eb4d1c7453ad6599185'
+  APPROVED_REQUEST_SHA: '3c1708d8f649fb1f7ad9ecf71ea202f0cd0944db'
 
 jobs:
   release:
@@ -45,15 +48,24 @@ jobs:
           fi
           tmp=$(mktemp -d)
           run_id="$REQUEST_RUN"
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            run_id=$(cat .github/requests/z3-core-publish.txt)
+          fi
           [[ "$run_id" =~ ^[1-9][0-9]*$ ]]
           run=$(gh api "repos/$SOURCE_REPO/actions/runs/$run_id")
-          jq -e --arg sha "$APPROVED_REQUEST_SHA" --argjson id "$run_id" '
-            .id == $id and .head_sha == $sha and .head_branch == "FlClashZ"
+          jq -e --argjson id "$run_id" '
+            .id == $id and .head_branch == "FlClashZ"
             and .head_repository.full_name == "geliopat/Clash.Meta"
-            and .event == "workflow_dispatch"
+            and (.event == "workflow_dispatch" or .event == "push")
             and .path == ".github/workflows/flclashz-core-auto.yml"
             and .status == "completed" and .conclusion == "success"
           ' <<< "$run" >/dev/null
+          request_sha=$(jq -er .head_sha <<< "$run")
+          [[ "$request_sha" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$request_sha" != "$APPROVED_REQUEST_SHA" ]]; then
+            comparison=$(gh api "repos/$SOURCE_REPO/compare/$APPROVED_REQUEST_SHA...$request_sha")
+            jq -e '.status == "ahead" and .behind_by == 0 and (.files | length == 1) and .files[0].filename == ".github/requests/z3-core-build.txt"' <<< "$comparison" >/dev/null
+          fi
           gh api "repos/$SOURCE_REPO/actions/runs/$run_id/jobs?per_page=100" |
             jq -e '.total_count == 3 and ([.jobs[] | select(.conclusion == "success") | .name] | sort == ["prepare","race","windows"])' >/dev/null
           response=$(gh api "repos/$SOURCE_REPO/actions/runs/$run_id/artifacts?per_page=100")
