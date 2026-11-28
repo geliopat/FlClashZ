@@ -131,7 +131,11 @@ class AdditionalMihomoSettingsView extends ConsumerWidget {
                   locked: false, releasable: owned,
                   onTakeOver: () {}, onRelease: () => _save(ref, path, null, remove: true),
                   caption: caption,
-                  child: ListItem(title: Text(path), subtitle: Text(label(value)),
+                  child: ListItem(title: Text(path), subtitle: Text(
+                    additionalRequiresCoreRestart(path)
+                      ? '${label(value)} · ${ru ? 'Требуется перезапуск ядра' : 'Core restart required'}'
+                      : label(value),
+                  ),
                     onTap: () async {
                       if (!owned) {
                         final agreed = await dialogs.showMessage(
@@ -168,6 +172,11 @@ class AdditionalMihomoSettingsView extends ConsumerWidget {
                   if (context.mounted) await _edit(context, ref, selected, initial);
                 }),
           ]),
+          if (section == AdditionalMihomoSection.general)
+            Padding(padding: const EdgeInsets.all(8), child: Text(ru
+              ? 'QUIC GSO/ECN: изменение или смена профиля не сбрасывает уже установленные параметры процесса Z3. Для гарантированного применения перезапусти ядро (не только VPN).'
+              : 'QUIC GSO/ECN: changing or switching profiles does not reset existing Z3 process options. Restart the core process, not only the VPN, to apply them reliably.',
+              style: context.listCaptionStyle)),
           Padding(padding: const EdgeInsets.all(8), child: Text(ru
             ? 'Параметры сохраняются только в выбранном профиле. Управляемые приложением, платформенные и секретные поля здесь не изменяются.'
             : 'Settings are stored only for this profile. App-managed, platform-specific and sensitive fields are not edited here.',

@@ -4,6 +4,12 @@ import 'package:fl_clash/models/models.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('Z3 flags with process-wide environment semantics are marked restart-required', () {
+    expect(additionalRequiresCoreRestart('experimental.quic-go-disable-gso'), isTrue);
+    expect(additionalRequiresCoreRestart('experimental.quic-go-disable-ecn'), isTrue);
+    expect(additionalRequiresCoreRestart('experimental.dialer-ip4p-convert'), isFalse);
+    expect(additionalRequiresCoreRestart('geodata-mode'), isFalse);
+  });
   test('TUN aliases are compatibility inputs, not extra controls', () {
     const path = 'tun.inet6-route-address';
     expect(additionalMihomoKeys.containsKey(path), isFalse);

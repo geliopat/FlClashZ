@@ -62,6 +62,15 @@ bool _isStoredTunAlias(String path) => _tunRouteAliases.values
     .expand((aliases) => aliases)
     .any((alias) => path == 'tun.$alias');
 
+/// In the pinned Z3 executor these flags only set environment variables
+/// to true; false does not unset them. QUIC may cache process-level options.
+/// A full core-process restart, rather than just applying a profile, is
+/// required for deterministic application of changed values.
+bool additionalRequiresCoreRestart(String path) => const {
+  'experimental.quic-go-disable-gso',
+  'experimental.quic-go-disable-ecn',
+}.contains(path);
+
 /// Never infer absence from null/false/zero. Map keys are fixed paths only;
 /// policy domains and lists remain values rather than split path components.
 ({bool present, Object? value}) additionalSourceOf(Map<String, dynamic> config, String path) {

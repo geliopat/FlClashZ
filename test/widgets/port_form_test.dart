@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/features/form/form.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/app.dart';
@@ -59,7 +61,7 @@ void main() {
     final container = await _openPortForm(tester);
     final config = container.read(patchClashConfigProvider);
 
-    expect(_fields, findsNWidgets(5));
+    expect(_fields, findsNWidgets(Platform.isWindows ? 3 : 5));
     expect(
       [
         for (final field in tester.widgetList<TextFormField>(_fields))
@@ -70,8 +72,8 @@ void main() {
           config.mixedPort,
           config.port,
           config.socksPort,
-          config.redirPort,
-          config.tproxyPort,
+          if (!Platform.isWindows) config.redirPort,
+          if (!Platform.isWindows) config.tproxyPort,
         ])
           '$port',
       ],
@@ -134,7 +136,7 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
 
-    expect(_fields, findsNWidgets(5));
+    expect(_fields, findsNWidgets(Platform.isWindows ? 3 : 5));
     expect(container.read(patchClashConfigProvider), before);
   });
 
@@ -146,8 +148,10 @@ void main() {
     await tester.enterText(_fields.first, '7891');
     await tester.enterText(_fields.at(1), '7892');
     await tester.enterText(_fields.at(2), '7893');
-    await tester.enterText(_fields.at(3), '0');
-    await tester.enterText(_fields.at(4), '0');
+    if (!Platform.isWindows) {
+      await tester.enterText(_fields.at(3), '0');
+      await tester.enterText(_fields.at(4), '0');
+    }
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
