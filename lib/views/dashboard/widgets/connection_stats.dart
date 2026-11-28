@@ -1,5 +1,7 @@
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/providers/app.dart';
+import 'package:fl_clash/providers/connection_statistics.dart';
+import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/views/dashboard/layout.dart';
 import 'package:fl_clash/views/dashboard/style.dart';
 import 'package:fl_clash/widgets/widgets.dart';
@@ -11,27 +13,20 @@ import 'connections_table.dart';
 
 /// The counts of the three feeds, each opening its list, for the phone and
 /// for a desktop page too short for the table.
-class ConnectionStatsCard extends ConsumerStatefulWidget {
+class ConnectionStatsCard extends ConsumerWidget {
   const ConnectionStatsCard({super.key});
 
-  @override
-  ConsumerState<ConnectionStatsCard> createState() =>
-      _ConnectionStatsCardState();
-}
-
-class _ConnectionStatsCardState extends ConsumerState<ConnectionStatsCard>
-    with
-        WidgetsBindingObserver,
-        ActivePollingMixin<ConnectionStatsCard>,
-        RouteMotionHoldMixin<ConnectionStatsCard>,
-        ConnectionsPolling<ConnectionStatsCard> {
   static const _inset = 8.0;
 
   @override
-  bool get pollsConnections => false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connected = ref.watch(coreStatusProvider) == CoreStatus.connected;
+    final active = PageActivityScope.isActiveOf(context) &&
+        TickerMode.valuesOf(context).enabled;
+    final count = !connected ? 0 : active
+        ? ref.watch(connectionStatisticsProvider.select(
+            (value) => value.asData?.value?.snapshot.count))
+        : null;
     final shape = AppShape.all(
       dashboardCardRadius(DashboardDensityScope.of(context)) - _inset,
     );
@@ -43,10 +38,7 @@ class _ConnectionStatsCardState extends ConsumerState<ConnectionStatsCard>
           _Stat(
             feed: DashboardFeed.connections,
             shape: shape,
-            count: ValueListenableBuilder(
-              valueListenable: connectionCount,
-              builder: (context, count, _) => _Count(count),
-            ),
+            count: _Count(count),
           ),
           _Stat(
             feed: DashboardFeed.requests,
@@ -73,12 +65,12 @@ class _ConnectionStatsCardState extends ConsumerState<ConnectionStatsCard>
 class _Count extends StatelessWidget {
   const _Count(this.count);
 
-  final int count;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
     return Text(
-      dashboardCount(count),
+      count == null ? '—' : dashboardCount(count!),
       maxLines: 1,
       style: DashboardText.figure(
         context,

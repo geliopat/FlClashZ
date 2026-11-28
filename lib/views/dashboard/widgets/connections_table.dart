@@ -1,16 +1,12 @@
 import 'package:fl_clash/ui/network_palette.dart';
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show listEquals;
-
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/core/controller.dart';
-import 'package:fl_clash/core/method.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/features.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/app.dart';
-import 'package:fl_clash/providers/core.dart';
+import 'package:fl_clash/providers/connection_statistics.dart';
 import 'package:fl_clash/views/connection/connections.dart';
 import 'package:fl_clash/views/connection/requests.dart';
 import 'package:fl_clash/views/dashboard/layout.dart';
@@ -77,78 +73,6 @@ void openDashboardFeed(BuildContext context, DashboardFeed feed) {
       },
     ),
   );
-}
-
-/// Polls the live connections while the dashboard is shown: the whole list
-/// while its table is open, only the count otherwise.
-mixin ConnectionsPolling<T extends ConsumerStatefulWidget>
-    on
-        ConsumerState<T>,
-        WidgetsBindingObserver,
-        ActivePollingMixin<T>,
-        RouteMotionHoldMixin<T> {
-  final connectionCount = ValueNotifier(0);
-  List<TrackerInfo> connections = const [];
-  var tcpCount = 0;
-  var udpCount = 0;
-
-  bool get pollsConnections;
-
-  CoreController get _core => ref.read(coreHandlerProvider);
-
-  @override
-  Duration get pollInterval => Duration(seconds: pollsConnections ? 1 : 2);
-
-  @override
-  void dispose() {
-    connectionCount.dispose();
-    super.dispose();
-  }
-
-  @override
-  Future<void> poll(PollGuard isCurrent) async {
-    if (ref.read(coreStatusProvider) != CoreStatus.connected) {
-      if (!isCurrent()) return;
-      connectionCount.value = 0;
-      if (connections.isNotEmpty || tcpCount != 0 || udpCount != 0) {
-        updateWhenRouteSettled(
-          () => setState(() {
-            connections = const [];
-            tcpCount = 0;
-            udpCount = 0;
-          }),
-        );
-      }
-      return;
-    }
-    try {
-      if (pollsConnections) {
-        final sample = await _core.getConnectionSnapshot();
-        final next = [...sample.connections];
-        if (!isCurrent()) return;
-        next.sort((a, b) => b.start.compareTo(a.start));
-        final tcp = sample.tcp;
-        connectionCount.value = next.length;
-        if (listEquals(connections, next) && tcpCount == sample.tcp && udpCount == sample.udp) return;
-        updateWhenRouteSettled(
-          () => setState(() {
-            connections = next;
-            tcpCount = tcp;
-            udpCount = sample.udp;
-          }),
-        );
-      } else {
-        final count = (await _core.getConnectionSnapshot()).count;
-        if (!isCurrent()) return;
-        connectionCount.value = count;
-      }
-    } catch (error) {
-      commonPrint.log(
-        'dashboard connections error: $error',
-        logLevel: coreFailureLogLevel(error),
-      );
-    }
-  }
 }
 
 /// Follows a counter the Core moves per event, at the cadence the feed's own
@@ -225,18 +149,11 @@ class ConnectionsTableCard extends ConsumerStatefulWidget {
 }
 
 class _ConnectionsTableCardState extends ConsumerState<ConnectionsTableCard>
-    with
-        WidgetsBindingObserver,
-        ActivePollingMixin<ConnectionsTableCard>,
-        RouteMotionHoldMixin<ConnectionsTableCard>,
-        ConnectionsPolling<ConnectionsTableCard> {
+    with RouteMotionHoldMixin<ConnectionsTableCard> {
   var _feed = DashboardFeed.connections;
   List<TrackerInfo> _requests = const [];
   List<DnsQuery> _queries = const [];
   Timer? _snapshot;
-
-  @override
-  bool get pollsConnections => _feed == DashboardFeed.connections;
 
   @override
   void initState() {
@@ -281,19 +198,25 @@ class _ConnectionsTableCardState extends ConsumerState<ConnectionsTableCard>
     if (feed == _feed) return;
     setState(() {
       _feed = feed;
-      if (feed != DashboardFeed.connections) {
-        connections = const [];
-      }
       _takeSnapshot();
     });
-    if (feed == DashboardFeed.connections) {
-      stopPolling();
-      startPolling();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final connected = ref.watch(coreStatusProvider) == CoreStatus.connected;
+    final active = PageActivityScope.isActiveOf(context) &&
+        TickerMode.valuesOf(context).enabled;
+    final snapshot = active && connected
+        ? ref.watch(connectionStatisticsProvider.select(
+            (value) => value.asData?.value?.snapshot))
+        : null;
+    final connections = _feed == DashboardFeed.connections
+        ? snapshot?.newestFirst ?? const <TrackerInfo>[]
+        : const <TrackerInfo>[];
+    final tcpCount = snapshot?.tcp ?? 0;
+    final udpCount = snapshot?.udp ?? 0;
+    final count = connected ? snapshot?.count : 0;
     final density = DashboardDensityScope.of(context);
     final scale = DashboardDensityScope.scaleOf(context);
     final rowHeight = _rowHeightOf(density) * scale;
@@ -337,10 +260,7 @@ class _ConnectionsTableCardState extends ConsumerState<ConnectionsTableCard>
                     children: [
                       segment(
                         DashboardFeed.connections,
-                        ValueListenableBuilder(
-                          valueListenable: connectionCount,
-                          builder: (context, count, _) => _TabCount(count),
-                        ),
+                        _TabCount(count),
                       ),
                       segment(
                         DashboardFeed.requests,
@@ -409,12 +329,12 @@ class _ConnectionsTableCardState extends ConsumerState<ConnectionsTableCard>
 class _TabCount extends StatelessWidget {
   const _TabCount(this.count);
 
-  final int count;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
     return Text(
-      dashboardCount(count),
+      count == null ? '—' : dashboardCount(count!),
       maxLines: 1,
       style: AppTextStyle.subheadline
           .of(context, emphasized: true)
