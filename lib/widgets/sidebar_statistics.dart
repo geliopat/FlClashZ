@@ -6,7 +6,6 @@ import 'package:fl_clash/ui/typography.dart';
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:ui' show FontFeature;
 
 import 'package:ffi/ffi.dart';
 import 'package:fl_clash/common/common.dart';
@@ -54,8 +53,8 @@ _Sample _guiSample() {
             Pointer<Uint64>, Pointer<Uint64>)>('GetProcessTimes');
     final out = calloc<Uint64>(4);
     try {
-      if (times(current(), out, out.elementAt(1), out.elementAt(2),
-          out.elementAt(3)) != 0) {
+      if (times(current(), out, out + 1, out + 2,
+          out + 3) != 0) {
         return _Sample(pid, out[0], out[2] + out[3], rss);
       }
     } finally {

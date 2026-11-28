@@ -111,17 +111,20 @@ class ManagedSetting extends ConsumerWidget {
 String? yamlSourceCaption(Map<String, Object>? references, String key, {
   required bool owned, required bool russian,
 }) {
-  if (references == null) return owned
-      ? (russian ? 'Локальная настройка' : 'Local setting') : null;
-  if (!references.containsKey(key)) return owned
-      ? (russian ? 'Локальная настройка' : 'Local setting')
-      : (russian ? 'По умолчанию' : 'Default');
+  if (references == null) {
+    return owned ? (russian ? 'Локальная настройка' : 'Local setting') : null;
+  }
+  if (!references.containsKey(key)) {
+    return owned
+        ? (russian ? 'Локальная настройка' : 'Local setting')
+        : (russian ? 'По умолчанию' : 'Default');
+  }
   final value = references[key];
   final display = switch (value) {
-    bool b => russian ? (b ? 'включено' : 'выключено') : (b ? 'enabled' : 'disabled'),
-    String s when s.isEmpty => russian ? 'пусто' : 'empty',
-    List l when l.isEmpty => russian ? 'пустой список' : 'empty list',
-    List l => l.join(', '),
+    final bool b => russian ? (b ? 'включено' : 'выключено') : (b ? 'enabled' : 'disabled'),
+    final String s when s.isEmpty => russian ? 'пусто' : 'empty',
+    final List l when l.isEmpty => russian ? 'пустой список' : 'empty list',
+    final List l => l.join(', '),
     _ => value.toString(),
   };
   final source = russian ? 'Из подписки' : 'From subscription';

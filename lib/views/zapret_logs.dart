@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart' show compute;
 
 import 'package:fl_clash/core/desktop/helper_client.dart';
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/common/file_logger.dart';
 import 'package:flutter/services.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/l10n/l10n.dart';
@@ -38,7 +37,9 @@ bool sameZapretLogs(List<HelperZapretLog> a, List<HelperZapretLog> b) {
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {
     if (a[i].time != b[i].time || a[i].level != b[i].level ||
-        a[i].message != b[i].message) return false;
+        a[i].message != b[i].message) {
+      return false;
+    }
   }
   return true;
 }
@@ -138,7 +139,7 @@ class _ZapretLogsViewState extends State<ZapretLogsView>
     setState(() => _archive = future);
     // Observe the original future even if the user leaves the page before
     // FutureBuilder subscribes. Keep its error available for the UI.
-    unawaited(future.then<void>((_) {}, onError: (Object _, StackTrace __) {})
+    unawaited(future.then<void>((_) {}, onError: (Object _, StackTrace _) {})
         .whenComplete(() => _readingArchive = false));
   }
 
@@ -164,7 +165,9 @@ class _ZapretLogsViewState extends State<ZapretLogsView>
     final log = entry.log;
     if (_tab == 1 && log.level != 'error' &&
         !log.message.toLowerCase().contains('watchdog') &&
-        !log.message.toLowerCase().contains('engine exited')) return false;
+        !log.message.toLowerCase().contains('engine exited')) {
+      return false;
+    }
     if (_tab == 3 && !isRecoveryJournalMessage(log.message)) return false;
     return (_filter == 'all' || log.level == _filter) &&
         '${entry.component} ${log.level} ${log.message}'

@@ -341,7 +341,7 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
           if (_loading && _lists.isEmpty)
             ListItem(
               title: Text(AppLocalizations.of(context).loading),
-              trailing: SizedBox.square(
+              trailing: const SizedBox.square(
                 dimension: 18,
                 child: CommonCircleLoading(size: 18),
               ),
@@ -373,6 +373,7 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
                   : () async {
                       final filename = _selected!;
                       final original = _editor.text;
+                      final concurrentEdit = AppLocalizations.of(context).forkConcurrentEdit;
                       await BaseNavigator.push<void>(
                         context,
                         EditorPage(
@@ -383,7 +384,7 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
                             await zapretListUpdater.edit(() async {
                               final current = await helperClient.readZapretList(filename);
                               if (!sameZapretList(current.content, original)) {
-                                throw StateError(AppLocalizations.of(context).forkConcurrentEdit);
+                                throw StateError(concurrentEdit);
                               }
                               await helperClient.writeZapretList(filename, text);
                             });
