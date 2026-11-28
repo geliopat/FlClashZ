@@ -118,19 +118,13 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
         });
         return;
       }
-      var snapshot = await core.getEngineDiagnostics();
-      if (!_isCurrent(generation)) return;
-      if (capacity != null || chain != null) {
-        // Each control updates only its setting; preserve the other native
-        // setting even after another page has changed it.
-        final current = snapshot['settings'] as Map;
-        await core.setEngineDiagnostics(
-          closedFlowCapacity: capacity ?? current['closedFlowCapacity'] as int,
-          chainDiagnostics: chain ?? current['chainDiagnostics'] as bool,
-        );
-        if (!_isCurrent(generation)) return;
-        snapshot = await core.getEngineDiagnostics();
-      }
+      final snapshot = capacity != null || chain != null
+          ? await core.patchEngineDiagnostics(
+              closedFlowCapacity: capacity,
+              chainDiagnostics: chain,
+              isCurrent: () => _isCurrent(generation),
+            )
+          : await core.getEngineDiagnostics();
       if (!_isCurrent(generation)) return;
       final settings = snapshot['settings'] as Map;
       List<Map<String, dynamic>> rows(String key) => [
@@ -209,7 +203,7 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
             final row = _closed[index - 1];
             return ListItem(
               title: Text(_join(row['chains']).isEmpty ? '${row['id']}' : _join(row['chains'])),
-              subtitle: Text('${row['removedAt']} · ${row['rule']} · ↑ ${row['upload']} B · ↓ ${row['download']} B'),
+              subtitle: Text('${row['start']} → ${row['removedAt']} · ${row['rule']} · ↑ ${row['upload']} B · ↓ ${row['download']} B'),
             );
           }
           final row = _chains[index - 1];
@@ -217,7 +211,7 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
           final delay = ((row['Duration'] as num?) ?? 0) / 1000000;
           return ListItem(
             title: Text('${row['Group']} · ${row['Target']}'),
-            subtitle: Text('${row['Network']} · ${delay.toStringAsFixed(1)} ms · ${_join(row['Chains'])} · '
+            subtitle: Text('${row['Started']} · ${row['Network']} · ${delay.toStringAsFixed(1)} ms · ${_join(row['Chains'])} · '
               '${successful ? _tr('Подключение создано', 'Dial succeeded') : _tr('Ошибка подключения', 'Dial failed')}'),
           );
         },

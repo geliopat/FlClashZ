@@ -45,6 +45,8 @@ class CoreController {
   }
 
   final Duration _snapshotMaxAge;
+  final _engineDiagnosticsScheduler = SerialTaskScheduler();
+  int _engineDiagnosticsGeneration = 0;
   late final _connectionSnapshots = ConnectionSnapshotReader(_interface.getConnections, maxAge: _snapshotMaxAge);
 
   Future<ConnectionSnapshot> getConnectionSnapshot() => _connectionSnapshots.read();
@@ -60,11 +62,22 @@ class CoreController {
     }
   }
 
-  Future<CoreLifecycleResult> start() => _invalidateConnectionsDuring(_interface.start);
+  Future<CoreLifecycleResult> _changeCoreLifecycle(
+    Future<CoreLifecycleResult> Function() operation,
+  ) async {
+    _engineDiagnosticsGeneration++;
+    try {
+      return await _invalidateConnectionsDuring(operation);
+    } finally {
+      _engineDiagnosticsGeneration++;
+    }
+  }
 
-  Future<CoreLifecycleResult> restart() => _invalidateConnectionsDuring(_interface.restart);
+  Future<CoreLifecycleResult> start() => _changeCoreLifecycle(_interface.start);
 
-  Future<CoreLifecycleResult> close() => _invalidateConnectionsDuring(_interface.close);
+  Future<CoreLifecycleResult> restart() => _changeCoreLifecycle(_interface.restart);
+
+  Future<CoreLifecycleResult> close() => _changeCoreLifecycle(_interface.close);
 
   static Future<void> ensureHomeDir() async {
     final homePath = await appPath.homeDirPath;
@@ -464,7 +477,55 @@ class CoreController {
     return result;
   }
 
+  /// Z3 accepts a complete settings object. Serialize all client writes,
+  /// including read/modify/write, to avoid lost updates between pages.
+  Future<Map<String, dynamic>> patchEngineDiagnostics({
+    int? closedFlowCapacity,
+    bool? chainDiagnostics,
+    bool Function()? isCurrent,
+  }) {
+    final generation = _engineDiagnosticsGeneration;
+    void checkGeneration() {
+      if (generation != _engineDiagnosticsGeneration || isCurrent?.call() == false) {
+        throw const CoreMethodException(
+          code: 'no_response', message: 'Core diagnostics request superseded',
+        );
+      }
+    }
+    return _engineDiagnosticsScheduler.run(() async {
+      checkGeneration();
+      final snapshot = await getEngineDiagnostics();
+      checkGeneration();
+      final settings = snapshot['settings'] as Map;
+      await _writeEngineDiagnostics(
+        closedFlowCapacity: closedFlowCapacity ?? settings['closedFlowCapacity'] as int,
+        chainDiagnostics: chainDiagnostics ?? settings['chainDiagnostics'] as bool,
+      );
+      checkGeneration();
+      final updated = await getEngineDiagnostics();
+      checkGeneration();
+      return updated;
+    });
+  }
+
   Future<void> setEngineDiagnostics({
+    required int closedFlowCapacity,
+    required bool chainDiagnostics,
+  }) {
+    final generation = _engineDiagnosticsGeneration;
+    return _engineDiagnosticsScheduler.run(() {
+      if (generation != _engineDiagnosticsGeneration) {
+        throw const CoreMethodException(
+          code: 'no_response', message: 'Core diagnostics request superseded',
+        );
+      }
+      return _writeEngineDiagnostics(
+        closedFlowCapacity: closedFlowCapacity, chainDiagnostics: chainDiagnostics,
+      );
+    });
+  }
+
+  Future<void> _writeEngineDiagnostics({
     required int closedFlowCapacity,
     required bool chainDiagnostics,
   }) async {

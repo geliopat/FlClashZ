@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _RecordingCoreHandler extends CoreHandlerInterface {
   final Map<CoreMethod, Object?> calls = {};
+  Map<String, dynamic> diagnosticsSettings = {'closedFlowCapacity': 32, 'chainDiagnostics': true};
 
   @override
   Future<CoreLifecycleResult> start() async => const CoreLifecycleResult(
@@ -36,6 +37,9 @@ class _RecordingCoreHandler extends CoreHandlerInterface {
     Duration? timeout,
   }) async {
     calls[method] = arguments;
+    if (method == CoreMethod.setEngineDiagnostics) {
+      diagnosticsSettings = Map<String, dynamic>.from(arguments as Map);
+    }
     final result = switch (method) {
       CoreMethod.initClash => true as T,
       CoreMethod.getTraffic ||
@@ -122,7 +126,7 @@ class _RecordingCoreHandler extends CoreHandlerInterface {
         'hostRevision': '03c93c9adf1d847be367f1ecd1f3381d6bb25183',
       },
       CoreMethod.getEngineDiagnostics => {
-        'settings': {'closedFlowCapacity': 32, 'chainDiagnostics': true},
+        'settings': Map<String, dynamic>.of(diagnosticsSettings),
         'closed': null,
         'chains': null,
       },
@@ -222,6 +226,23 @@ void main() {
     expect(handler.calls[CoreMethod.setChainHealth], {
       'name': 'node', 'group': 'dialer', 'identity': '42', 'enabled': true,
     });
+  });
+
+  test('concurrent diagnostic controls preserve each other', () async {
+    final handler = _RecordingCoreHandler();
+    final controller = CoreController.scoped(handler);
+    await Future.wait([
+      controller.patchEngineDiagnostics(closedFlowCapacity: 1024),
+      controller.patchEngineDiagnostics(chainDiagnostics: false),
+    ]);
+    expect(handler.diagnosticsSettings, {
+      'closedFlowCapacity': 1024, 'chainDiagnostics': false,
+    });
+    await expectLater(
+      controller.patchEngineDiagnostics(closedFlowCapacity: 0, isCurrent: () => false),
+      throwsA(isA<CoreMethodException>()),
+    );
+    expect(handler.diagnosticsSettings['closedFlowCapacity'], 1024);
   });
 
   test('native DNS stages survive JSON and copyWith, old messages omit them', () {
