@@ -393,7 +393,9 @@ abstract class OverrideSpec<K extends OverrideKey, M> {
     if (!system.isWindows || yamlSection == null) return false;
     final profile = watch ? ref.watch(currentProfileProvider) : ref.read(currentProfileProvider);
     if (profile == null || profile.type == ProfileType.custom ||
-        profile.extendType == ExtendType.script) return false;
+        profile.extendType == ExtendType.script) {
+      return false;
+    }
     final target = this.target;
     if (target is ProfileOverrideTarget<K, M> && target.profileId != profile.id) return false;
     final sources = watch ? ref.watch(yamlSectionSourcesProvider) : ref.read(yamlSectionSourcesProvider);
@@ -806,12 +808,12 @@ class _RemoveButton<K extends OverrideKey, M> extends ConsumerWidget {
 
 
 String inheritedOverrideValueLabel(Object? value, {required bool russian}) => switch (value) {
-  bool b => russian ? (b ? 'включено' : 'выключено') : (b ? 'enabled' : 'disabled'),
+  final bool b => russian ? (b ? 'включено' : 'выключено') : (b ? 'enabled' : 'disabled'),
   null => 'null',
-  String s when s.isEmpty => russian ? 'пусто' : 'empty',
-  List l when l.isEmpty => '[]',
-  Map m when m.isEmpty => '{}',
-  List l => l.map((v) => inheritedOverrideValueLabel(v, russian: russian)).join(', '),
-  Map m => m.entries.map((e) => '${e.key}: ${inheritedOverrideValueLabel(e.value, russian: russian)}').join('; '),
+  final String s when s.isEmpty => russian ? 'пусто' : 'empty',
+  final List l when l.isEmpty => '[]',
+  final Map m when m.isEmpty => '{}',
+  final List l => l.map((v) => inheritedOverrideValueLabel(v, russian: russian)).join(', '),
+  final Map m => m.entries.map((e) => '${e.key}: ${inheritedOverrideValueLabel(e.value, russian: russian)}').join('; '),
   _ => value.toString(),
 };

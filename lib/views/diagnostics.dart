@@ -13,8 +13,6 @@ import 'package:fl_clash/common/common.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:fl_clash/common/component_integrity.dart';
-import 'package:fl_clash/common/preferences.dart';
-import 'package:fl_clash/common/file_logger.dart';
 import 'package:fl_clash/core/desktop/helper_client.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';

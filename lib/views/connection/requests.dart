@@ -54,9 +54,11 @@ class _RequestsViewState extends ConsumerState<RequestsView>
     final sectionActive = SectionActivityScope.isActiveOf(context);
     final left = _sectionActive == true && !sectionActive;
     _sectionActive = sectionActive;
-    if (left) WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _listController.resumeAutoScrollToEnd(ref.read(requestsProvider).list);
-    });
+    if (left) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _listController.resumeAutoScrollToEnd(ref.read(requestsProvider).list);
+      });
+    }
     final active = PageActivityScope.isActiveOf(context);
     if (active == _pageActive) return;
     _pageActive = active;

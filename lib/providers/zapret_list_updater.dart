@@ -10,7 +10,9 @@ const zapretListRetryInterval = Duration(minutes: 5);
 
 bool zapretListsDue(DateTime now, DateTime? lastSuccess, DateTime? retryAfter) {
   if (retryAfter != null && now.isBefore(retryAfter) &&
-      retryAfter.difference(now) <= zapretListRetryInterval) return false;
+      retryAfter.difference(now) <= zapretListRetryInterval) {
+    return false;
+  }
   return lastSuccess == null || now.isBefore(lastSuccess) ||
       !now.isBefore(lastSuccess.add(zapretListUpdateInterval));
 }

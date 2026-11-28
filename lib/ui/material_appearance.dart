@@ -161,7 +161,9 @@ class LocalMaterialPane extends StatelessWidget {
     // Avoid a backdrop filter for Mica-like layers, fully opaque panes or
     // zero blur. BackdropFilter is clipped to the pane, not the whole window.
     if (appearance.effect != MaterialEffect.acrylic ||
-        appearance.blur == 0 || fill.a == 1) return content;
+        appearance.blur == 0 || fill.a == 1) {
+      return content;
+    }
     return ClipPath(
       clipper: ShapeBorderClipper(shape: shape, textDirection: Directionality.of(context)),
       child: BackdropFilter(

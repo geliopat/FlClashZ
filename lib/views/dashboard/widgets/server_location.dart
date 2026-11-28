@@ -36,7 +36,9 @@ class _ServerLocationCardState extends ConsumerState<ServerLocationCard>
         ref.read(coreStatusProvider) != CoreStatus.connected ||
         ref.read(delayTestPhaseProvider(
           proxyName: proxy.name, testUrl: testUrl,
-        )) != null) return;
+        )) != null) {
+      return;
+    }
     setState(() => _testingDelay = true);
     try {
       await ref.read(proxiesActionProvider.notifier)
@@ -196,7 +198,7 @@ class _ServerLocationCardState extends ConsumerState<ServerLocationCard>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (testing)
-                            SizedBox(
+                            const SizedBox(
                               height: 20,
                               child: Center(child: CommonCircleLoading(size: 16)),
                             )

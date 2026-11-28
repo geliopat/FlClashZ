@@ -5,7 +5,6 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
-import 'package:fl_clash/common/file_logger.dart';
 import 'package:flutter/services.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
 import 'package:fl_clash/ui/title_tabs.dart';
@@ -90,9 +89,11 @@ class _LogsViewState extends ConsumerState<LogsView>
     final left = _sectionActive == true && !section;
     _sectionActive = section;
     if (left) _level = null;
-    if (left) WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _listController.resumeAutoScrollToEnd(ref.read(logsProvider).list);
-    });
+    if (left) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _listController.resumeAutoScrollToEnd(ref.read(logsProvider).list);
+      });
+    }
     if (resumed) updateLogsThrottler();
   }
 
