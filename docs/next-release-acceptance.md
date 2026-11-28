@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Section navigation waits for the asynchronous CommonPopScope confirmation of the actual route rather than treating the initial Flutter veto as final. A cancelled or failed save stays in the current section; an accepted close continues the requested transition. Duplicate close requests share the pending answer and a late confirmation cannot pop a different route. Added widget regressions for accept/cancel and overlapping requests; execution pending.
+
 - Section lifecycle: DNS query view stops rendering updates while inactive or ticker-suspended, catches up from the unchanged ring on return, and resets its search/paused follow state on section re-entry. Diagnostics returns to its first tab without losing the timestamped report or cancelling running checks. Added hidden-DNS regression; Windows rendering and full section navigation tests pending.
 
 - Single Windows log export: ZIP contains retained Mihomo, Zapret, application, crash and recovery files, Helper's bounded native service archive and the current DNS-query ring. The manifest identifies unavailable sources and unflushed entries. ZIP creation runs off the UI isolate, the desktop picker selects a destination without loading the archive into RAM, and temporary files are removed. No subscriptions, settings or keys are added; original log content may include network data. Partial exports are explicitly reported. Regression and Windows picker checks pending.

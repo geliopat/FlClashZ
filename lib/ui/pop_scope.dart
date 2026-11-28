@@ -4,6 +4,22 @@ import 'package:flutter/widgets.dart';
 
 import 'inherited.dart';
 
+/// Navigator.maybePop returns after notifying a vetoing PopScope, not after
+/// its asynchronous confirmation. Share the pending answer with section
+/// navigation without bypassing any ordinary Flutter pop guards.
+final _pendingPopAnswers = Expando<Future<bool>>('pending pop confirmation');
+
+Future<bool> maybePopAndWait(NavigatorState navigator, Route<dynamic>? route) async {
+  if (route != null) {
+    final pending = _pendingPopAnswers[route];
+    if (pending != null) return pending;
+  }
+  final handled = await navigator.maybePop();
+  if (!handled || route == null) return handled;
+  final pending = _pendingPopAnswers[route];
+  return pending == null ? handled : await pending;
+}
+
 class CommonPopScope extends StatelessWidget {
   final Widget child;
 
@@ -37,16 +53,26 @@ class CommonPopScope extends StatelessWidget {
                 Navigator.of(context).pop();
                 return;
               }
-              final res = await onPop!(context);
-              if (!context.mounted) {
-                return;
-              }
-              if (!res) {
-                return;
-              }
-              Navigator.of(context).pop();
-              if (onPopSuccess != null) {
-                await onPopSuccess!();
+              if (route == null || _pendingPopAnswers[route] != null) return;
+              final answer = Completer<bool>();
+              _pendingPopAnswers[route] = answer.future;
+              var popped = false;
+              try {
+                final res = await onPop!(context);
+                // A late confirmation must never close another route that
+                // was opened while the editor was awaiting its answer.
+                if (!res || !context.mounted || !route.isCurrent ||
+                    route.navigator?.mounted != true) return;
+                route.navigator!.pop();
+                popped = !route.isCurrent;
+                if (popped && onPopSuccess != null) {
+                  await onPopSuccess!();
+                }
+              } catch (error) {
+                debugPrint('Page close confirmation failed: $error');
+              } finally {
+                answer.complete(popped);
+                _pendingPopAnswers[route] = null;
               }
             },
       child: child,

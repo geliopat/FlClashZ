@@ -6,6 +6,7 @@ import 'package:fl_clash/manager/app_manager.dart';
 import 'package:fl_clash/models/common.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
+import 'package:fl_clash/ui/pop_scope.dart' show maybePopAndWait;
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
@@ -220,7 +221,7 @@ class _NavigationPageState extends ConsumerState<_NavigationPage> {
       final before = _routes.open;
       final top = _routes.top;
       final hadLocalHistory = top?.willHandlePopInternally ?? false;
-      if (!await navigator.maybePop()) return false;
+      if (!await maybePopAndWait(navigator, top)) return false;
       if (!mounted || !navigator.mounted) return false;
       if (_routes.open < before) continue;
       if (hadLocalHistory && top?.willHandlePopInternally == false) continue;
