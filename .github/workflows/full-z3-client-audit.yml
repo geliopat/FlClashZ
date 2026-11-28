@@ -1,7 +1,5 @@
 name: Full z3 client and signed candidate system tests (no publication)
 on:
-  push:
-    branches: [candidate/z3-final-adapter]
   workflow_dispatch:
 permissions:
   contents: read
