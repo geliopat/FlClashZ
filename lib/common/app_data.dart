@@ -1,12 +1,23 @@
 import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/common/preferences_store.dart';
 import 'package:fl_clash/database/database.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:path/path.dart';
 
 Future<void> clearAppData() async {
-  await preferences.clearPreferences();
+  if (await preferences.isInit || !(system.isWindows || system.isLinux)) {
+    await preferences.clearPreferences();
+  } else {
+    // Explicitly confirmed full reset from the startup-error UI.
+    await clearUnreadableFilePreferences(
+      File(await appPath.sharedPreferencesPath),
+      independentBackup: system.isWindows
+          ? File(join(await appPath.homeDirPath, independentSettingsBackupName))
+          : null,
+    );
+  }
   try {
     await database.close();
   } catch (error) {

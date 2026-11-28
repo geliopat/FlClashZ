@@ -10,6 +10,7 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/system_notification.dart';
 import 'package:fl_clash/common/launch.dart';
 import 'package:fl_clash/common/migration.dart';
+import 'package:fl_clash/common/preferences_store.dart';
 import 'package:fl_clash/common/tray.dart';
 import 'package:fl_clash/common/window.dart';
 import 'package:fl_clash/database/database.dart';
@@ -108,9 +109,9 @@ class Bootstrap {
     );
     globalState.packageInfo = await PackageInfo.fromPlatform();
     var config = await migration.run();
-    _bootDecision = await bootGuard.evaluate(
-      profileId: config.currentProfileId,
-    );
+    _bootDecision = await preferences.isInit
+        ? await bootGuard.evaluate(profileId: config.currentProfileId)
+        : const BootDecision();
     if (_bootDecision.recovery == BootRecovery.clearProfile) {
       config = config.copyWith(currentProfileId: null);
       await preferences.saveConfig(config);
@@ -193,7 +194,7 @@ class Bootstrap {
     } else {
       unawaited(window?.hide());
     }
-    await _handleFailedPreference();
+    if (!await _handleFailedPreference()) return;
     if (!await _handlerDisclaimer()) {
       return;
     }
@@ -296,18 +297,35 @@ class Bootstrap {
     return profile?.label.takeFirstValid(['$profileId']) ?? '$profileId';
   }
 
-  Future<void> _handleFailedPreference() async {
-    if (await preferences.isInit) return;
+  Future<bool> _handleFailedPreference() async {
+    if (await preferences.isInit) return true;
     final res = await dialogs.showMessage(
       title: currentAppLocalizations.tip,
       message: TextSpan(text: currentAppLocalizations.cacheCorrupt),
     );
     if (res == true) {
-      final file = File(await appPath.sharedPreferencesPath);
-      await file.safeDelete();
+      try {
+        final file = File(await appPath.sharedPreferencesPath);
+        if (system.isWindows || system.isLinux) {
+          await clearUnreadableFilePreferences(
+            file,
+            independentBackup: system.isWindows
+                ? File('${await appPath.homeDirPath}${Platform.pathSeparator}$independentSettingsBackupName')
+                : null,
+          );
+        } else {
+          await file.safeDelete();
+        }
+      } catch (error) {
+        await dialogs.showAlert(
+          title: currentAppLocalizations.tip,
+          message: TextSpan(text: currentAppLocalizations.clearDataFailed('$error')),
+        );
+      }
     }
     // Saving here would rewrite the preferences file the user just chose to delete.
     await _container.read(systemActionProvider.notifier).handleExit(false);
+    return false;
   }
 
   /// Unattended desktop installs, such as a container nobody watches, accept

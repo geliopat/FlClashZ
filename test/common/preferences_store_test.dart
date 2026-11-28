@@ -238,6 +238,34 @@ void main() {
     expect(await reopened.getAll(), {'flutter.version': 42});
   });
 
+  test('confirmed unreadable-store reset removes both recovery sources', () async {
+    final primary = File(path)..writeAsStringSync('{broken');
+    final backup = File('$path.last-good')..writeAsStringSync('{broken too');
+    final independent = File(join(dir.path, independentSettingsBackupName))
+      ..writeAsStringSync('{}');
+    final profile = File(join(dir.path, 'profile.yaml'))..writeAsStringSync('proxies: []');
+    await clearUnreadableFilePreferences(primary, independentBackup: independent);
+    expect(await primary.exists(), isFalse);
+    expect(await backup.exists(), isFalse);
+    expect(await independent.exists(), isFalse);
+    expect(await profile.exists(), isTrue);
+    expect(await AtomicFilePreferencesStore(Future.value(path), enableRecovery: true).getAll(), isEmpty);
+  });
+
+  test('reset refuses non-file recovery paths before deleting anything', () async {
+    final primary = File(path)..writeAsStringSync('{broken');
+    final backup = await Directory('$path.last-good').create();
+    final independent = File(join(dir.path, independentSettingsBackupName))
+      ..writeAsStringSync('{}');
+    await expectLater(
+      clearUnreadableFilePreferences(primary, independentBackup: independent),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(await primary.exists(), isTrue);
+    expect(await independent.exists(), isTrue);
+    expect(await backup.exists(), isTrue);
+  });
+
   test('backs SharedPreferences', () async {
     addTearDown(SharedPreferences.resetStatic);
     SharedPreferencesStorePlatform.instance = openStore();

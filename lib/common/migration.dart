@@ -127,11 +127,19 @@ class Migration {
 
   Future<Config> run() async {
     final stored = await _store.getConfigMap();
-    final isFresh = stored == null && await _store.getVersion() == 0;
+    // An unreadable store is not a fresh installation. Let Bootstrap offer
+    // explicit recovery without importing profiles or writing markers.
+    if (!await _store.isAvailable) return Config.realFromJson(stored);
+    final oldVersion = await _store.getVersion();
+    if (oldVersion < 0 || oldVersion > currentVersion) {
+      throw StateError('Unsupported local data version $oldVersion (current $currentVersion).');
+    }
+    final isFresh = stored == null && oldVersion == 0;
     final imported = isFresh ? await _importLegacy?.call() : null;
     final configMap = stored ?? imported?.config;
     var config = await _migrate(
       configMap,
+      version: oldVersion,
       importedClashConfig: imported?.clashConfig,
     );
     if (_importLegacy != null) {
@@ -199,15 +207,11 @@ class Migration {
 
   Future<Config> _migrate(
     Map<String, Object?>? configMap, {
+    required int version,
     Map<String, Object?>? importedClashConfig,
   }) async {
-    var oldVersion = await _store.getVersion();
+    var oldVersion = version;
     Config? config;
-    if (oldVersion > currentVersion) {
-      throw StateError(
-        'Local data version $oldVersion is newer than $currentVersion.',
-      );
-    }
     if (oldVersion == currentVersion) {
       if (configMap != null && _isV0(configMap)) {
         try {
@@ -264,12 +268,7 @@ class Migration {
     }
     await _store.restore(data);
     if (!await _store.saveConfig(config)) {
-      // An unopenable store is reported later by the corrupt-cache dialog,
-      // which offers a reset; failing here would hide that path.
-      if (await _store.isAvailable) {
-        throw StateError('Failed to save migrated preferences');
-      }
-      return config;
+      throw StateError('Failed to save migrated preferences');
     }
     if (shouldClearClashConfig) {
       await _store.clearClashConfig();

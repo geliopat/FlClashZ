@@ -27,7 +27,7 @@ void main() {
 
       expect(config, Config.realFromJson(configMap));
       expect(config.davProps?.password, 'secret');
-      expect(store.events, ['getConfigMap', 'getVersion']);
+      expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion']);
     });
 
     test(
@@ -49,7 +49,7 @@ void main() {
         expect(config.davProps?.password, 'secret');
         expect(store.savedConfig, config);
         expect(store.version, Migration.currentVersion);
-        expect(store.events, ['getConfigMap', 'getVersion', 'saveConfig']);
+        expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion', 'saveConfig']);
         final savedConfigMap =
             jsonDecode(jsonEncode(store.savedConfig)) as Map<String, Object?>;
         final savedDavProps =
@@ -96,6 +96,7 @@ void main() {
 
         expect(store.events, [
           'getConfigMap',
+          'isAvailable',
           'getVersion',
           'getClashConfigMap',
           'migrateV0',
@@ -128,6 +129,7 @@ void main() {
         expect(store.didClearClashConfig, isTrue);
         expect(store.events, [
           'getConfigMap',
+          'isAvailable',
           'getVersion',
           'getClashConfigMap',
           'restore',
@@ -156,11 +158,11 @@ void main() {
       expect(store.version, 0);
       expect(store.events, [
         'getConfigMap',
+        'isAvailable',
         'getVersion',
         'getClashConfigMap',
         'restore',
         'saveConfig',
-        'isAvailable',
       ]);
     });
 
@@ -177,15 +179,53 @@ void main() {
       expect(config, isNotNull);
       expect(store.didClearClashConfig, isFalse);
       expect(store.version, 0);
-      expect(store.events, [
-        'getConfigMap',
-        'getVersion',
-        'getVersion',
-        'getClashConfigMap',
-        'restore',
-        'saveConfig',
-        'isAvailable',
-      ]);
+      expect(store.events, ['getConfigMap', 'isAvailable']);
+    });
+
+    test('unavailable store never imports, restores or writes markers', () async {
+      final store = _FakeMigrationStore(
+        configMap: _createConfigMap()..['currentProfileId'] = 42,
+        version: 0,
+        available: false,
+        upgradeVersion: 0,
+      );
+      final config = await Migration(
+        store: store,
+        importLegacy: () async => throw StateError('must not import'),
+        migrateV0: (_) async => throw StateError('must not migrate'),
+      ).run();
+      expect(config.currentProfileId, 42);
+      expect(store.events, ['getConfigMap', 'isAvailable']);
+      expect(store.legacyImported, isFalse);
+      expect(store.upgradeVersion, 0);
+    });
+
+    test('rejects unsupported versions before importing or writing', () async {
+      for (final version in [-1, Migration.currentVersion + 1]) {
+        final store = _FakeMigrationStore(configMap: null, version: version);
+        await expectLater(
+          Migration(store: store, importLegacy: () async => throw StateError('must not import')).run(),
+          throwsStateError,
+        );
+        expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion']);
+        expect(store.version, version);
+      }
+    });
+
+    test('failed legacy cleanup leaves version uncommitted for retry', () async {
+      final store = _FakeMigrationStore(
+        configMap: _createConfigMap()..remove('patchClashConfig'),
+        clashConfigMap: _createClashConfigMap(mixedPort: 1234),
+        version: 0,
+      )..clearError = StateError('blocked cleanup');
+      await expectLater(Migration(store: store).run(), throwsStateError);
+      expect(store.savedConfig?.patchClashConfig.mixedPort, 1234);
+      expect(store.version, 0);
+      expect(store.didClearClashConfig, isFalse);
+      store.clearError = null;
+      await Migration(store: store).run();
+      expect(store.version, Migration.currentVersion);
+      expect(store.didClearClashConfig, isTrue);
     });
 
     test('migrates the FlClashX 0.4 config a fresh store imports', () async {
@@ -354,6 +394,7 @@ void main() {
         expect(store.upgradeVersion, Migration.upgradeVersion);
         expect(store.events, [
           'getConfigMap',
+          'isAvailable',
           'getVersion',
           'saveConfig',
           'setUpgradeVersion',
@@ -369,7 +410,7 @@ void main() {
         final kept = await Migration(store: later).run();
 
         expect(kept.themeProps.primaryColor, 0xFF123456);
-        expect(later.events, ['getConfigMap', 'getVersion']);
+        expect(later.events, ['getConfigMap', 'isAvailable', 'getVersion']);
       });
 
       test('keeps standard glass on the ultra tier it became, once', () async {
@@ -486,7 +527,7 @@ void main() {
 
       expect(config.currentProfileId, 7);
       expect(config.excludeSSIDs, isEmpty);
-      expect(store.events, ['getConfigMap', 'getVersion']);
+      expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion']);
     });
 
     test('keeps the current version when password obfuscation fails', () async {
@@ -506,7 +547,7 @@ void main() {
         throwsA(isA<StateError>()),
       );
 
-      expect(store.events, ['getConfigMap', 'getVersion', 'saveConfig']);
+      expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion', 'saveConfig']);
       expect(store.version, Migration.currentVersion);
     });
   });
@@ -531,6 +572,7 @@ class _FakeMigrationStore implements MigrationStore {
   final bool available;
   final List<String> events = [];
   Error? restoreError;
+  Error? clearError;
 
   int version;
   int upgradeVersion;
@@ -556,6 +598,7 @@ class _FakeMigrationStore implements MigrationStore {
   @override
   Future<void> clearClashConfig() async {
     events.add('clearClashConfig');
+    if (clearError case final error?) throw error;
     didClearClashConfig = true;
   }
 

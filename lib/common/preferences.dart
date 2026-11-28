@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:fl_clash/common/settings_recovery.dart';
+import 'package:fl_clash/common/preferences_store.dart';
 
 import 'package:fl_clash/common/boot_record.dart';
 import 'package:fl_clash/common/common.dart';
@@ -26,7 +27,7 @@ class Preferences {
   Future<SettingsRecovery?> _recoveryFile() async {
     final override = recoveryFileOverride;
     final file = override != null ? await override() : Platform.isWindows
-        ? File(p.join(await appPath.homeDirPath, 'settings.last-good.v1.json'))
+        ? File(p.join(await appPath.homeDirPath, independentSettingsBackupName))
         : null;
     return file == null ? null : SettingsRecovery(file, _validateConfig);
   }
@@ -187,16 +188,10 @@ class Preferences {
   }
 
   Future<void> clearClashConfig() async {
-    try {
-      final preferences = await _store.value;
-      await preferences?.remove(clashConfigKey);
-      return;
-    } catch (e) {
-      commonPrint.log(
-        'clearClashConfig error ${e.toString()}',
-        logLevel: LogLevel.warning,
-      );
-      return;
+    final store = await _store.value;
+    if (store == null || !await store.remove(clashConfigKey)) {
+      await store?.reload();
+      throw StateError('Unable to remove legacy clash configuration');
     }
   }
 

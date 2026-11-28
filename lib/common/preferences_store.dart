@@ -8,6 +8,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_platfor
 import 'package:shared_preferences_platform_interface/types.dart';
 
 const _defaultPrefix = 'flutter.';
+const independentSettingsBackupName = 'settings.last-good.v1.json';
 
 /// Stands in for the Windows and Linux stores, which truncate the file before
 /// writing it (flutter/flutter#89211): same file and format, but each save
@@ -195,5 +196,29 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
   bool _matches(PreferencesFilter filter, String key) {
     return key.startsWith(filter.prefix) &&
         (filter.allowList?.contains(key) ?? true);
+  }
+}
+
+/// Only used after explicit confirmation of an unreadable desktop store
+/// reset. Validate every path first; never delete directories or links.
+Future<void> clearUnreadableFilePreferences(
+  File primary, {
+  File? independentBackup,
+}) async {
+  final files = [
+    if (independentBackup != null) independentBackup,
+    File('${primary.path}.last-good'),
+    primary,
+  ];
+  for (final file in files) {
+    final type = await FileSystemEntity.type(file.path, followLinks: false);
+    if (type != FileSystemEntityType.file &&
+        type != FileSystemEntityType.notFound) {
+      throw FileSystemException('Invalid preferences recovery path', file.path);
+    }
+  }
+  // Delete recovery sources first so the next launch cannot resurrect them.
+  for (final file in files) {
+    if (await file.exists()) await file.delete();
   }
 }
