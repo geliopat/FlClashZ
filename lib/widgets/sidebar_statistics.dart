@@ -130,7 +130,6 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
           }
         } catch (_) {}
       }
-      if (!mounted) return;
       if (!mounted || !ref.read(appVisibleProvider)) return;
       final now = _clock.elapsedMicroseconds;
       final elapsed = _lastSample == null ? 0 : now - _lastSample!;
@@ -237,7 +236,10 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
     final style = AppTextStyle.footnote.of(context);
     final heading = AppTextStyle.footnote.of(context, emphasized: true);
     final connected = ref.watch(coreStatusProvider) == CoreStatus.connected;
-    final connections = ref.watch(connectionStatisticsProvider).asData?.value;
+    final counts = ref.watch(connectionStatisticsProvider.select((value) {
+      final snapshot = value.asData?.value?.snapshot;
+      return (tcp: snapshot?.tcp, udp: snapshot?.udp);
+    }));
     final running = ref.watch(runTimeProvider) != null;
     final sampledSpeed = ref.watch(trafficsProvider.select(
         (state) => state.list.safeLast(const Traffic())));
@@ -269,9 +271,9 @@ class _SidebarStatisticsState extends ConsumerState<SidebarStatistics> {
             onTap: widget.onTraffic, selected: widget.trafficSelected,
             children: [
           Row(children: [
-            Expanded(child: Text('TCP ${connected ? connections?.tcp ?? '—' : 0}',
+            Expanded(child: Text('TCP ${connected ? counts.tcp ?? '—' : 0}',
               style: style.copyWith(color: NetworkTone.tcp.of(context)))),
-            Expanded(child: Text('UDP ${connected ? connections?.udp ?? '—' : 0}',
+            Expanded(child: Text('UDP ${connected ? counts.udp ?? '—' : 0}',
               textAlign: TextAlign.end,
               style: style.copyWith(color: NetworkTone.udp.of(context)))),
           ]),

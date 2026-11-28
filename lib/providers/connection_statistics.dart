@@ -9,10 +9,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core.dart';
 
+/// A successful poll is a new time sample even when the connection counters
+/// have not moved. Speed projections must be able to decay to zero.
+class ConnectionStatisticsSample {
+  const ConnectionStatisticsSample(this.snapshot, this.sampledAt);
+
+  final ConnectionSnapshot snapshot;
+  final DateTime sampledAt;
+}
+
 /// One demand-driven UI connection feed per provider container. The core
 /// controller still owns coalescing and invalidation for explicit reads.
 final connectionStatisticsProvider =
-    StreamProvider.autoDispose<ConnectionSnapshot?>((ref) {
+    StreamProvider.autoDispose<ConnectionStatisticsSample?>((ref) {
   final visible = ref.watch(appVisibleProvider);
   final status = ref.watch(coreStatusProvider);
   if (!visible || status != CoreStatus.connected) {
@@ -20,17 +29,17 @@ final connectionStatisticsProvider =
   }
 
   final core = ref.watch(coreHandlerProvider);
-  final stream = StreamController<ConnectionSnapshot?>();
+  final stream = StreamController<ConnectionStatisticsSample?>();
   Timer? timer;
   var disposed = false;
   var emitted = false;
   ConnectionSnapshot? previous;
 
   void publish(ConnectionSnapshot? sample) {
-    if (disposed || (emitted && identical(previous, sample))) return;
+    if (disposed || (emitted && previous == null && sample == null)) return;
     emitted = true;
     previous = sample;
-    stream.add(sample);
+    stream.add(sample == null ? null : ConnectionStatisticsSample(sample, DateTime.now()));
   }
 
   Future<void> poll() async {

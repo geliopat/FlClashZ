@@ -12,6 +12,11 @@ class ConnectionSnapshot {
   final int tcp;
   final int udp;
   int get count => connections.length;
+
+  /// Shared, lazy dashboard ordering; never mutate the authoritative list.
+  late final List<TrackerInfo> newestFirst = List.unmodifiable(
+    [...connections]..sort((a, b) => b.start.compareTo(a.start)),
+  );
 }
 
 /// Coalesce concurrent reads and reuse a recent sample. Never publish a
