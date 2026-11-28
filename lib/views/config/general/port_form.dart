@@ -75,13 +75,13 @@ class _PortFormState extends ConsumerState<_PortForm> {
         select: (config) => config.socksPort,
         label: (appLocalizations) => appLocalizations.socksPort,
       ),
-      _PortField(
+      if (!system.isWindows) _PortField(
         controller: _redirPortController,
         settingKey: 'clash.redir-port',
         select: (config) => config.redirPort,
         label: (appLocalizations) => appLocalizations.redirPort,
       ),
-      _PortField(
+      if (!system.isWindows) _PortField(
         controller: _tProxyPortController,
         settingKey: 'clash.tproxy-port',
         select: (config) => config.tproxyPort,
@@ -118,10 +118,10 @@ class _PortFormState extends ConsumerState<_PortForm> {
             socksPort: locked('clash.socks-port')
                 ? state.socksPort
                 : defaults.socksPort,
-            redirPort: locked('clash.redir-port')
+            redirPort: system.isWindows || locked('clash.redir-port')
                 ? state.redirPort
                 : defaults.redirPort,
-            tproxyPort: locked('clash.tproxy-port')
+            tproxyPort: system.isWindows || locked('clash.tproxy-port')
                 ? state.tproxyPort
                 : defaults.tproxyPort,
           ),
@@ -162,8 +162,8 @@ class _PortFormState extends ConsumerState<_PortForm> {
             mixedPort: ports[0],
             port: ports[1],
             socksPort: ports[2],
-            redirPort: ports[3],
-            tproxyPort: ports[4],
+            redirPort: system.isWindows ? state.redirPort : ports[3],
+            tproxyPort: system.isWindows ? state.tproxyPort : ports[4],
           ),
         );
     Navigator.of(context).pop();

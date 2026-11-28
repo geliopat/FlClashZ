@@ -224,12 +224,18 @@ Future<RealProfile> _makeRealProfileTask(MakeRealProfileState data) async {
   rawConfig['keep-alive-interval'] = realPatchConfig.keepAliveInterval;
   rawConfig['keep-alive-idle'] = realPatchConfig.keepAliveIdle;
   rawConfig['disable-keep-alive'] = realPatchConfig.disableKeepAlive;
-  rawConfig['routing-mark'] = realPatchConfig.routingMark;
+  rawConfig['routing-mark'] = Platform.isWindows ? 0 : realPatchConfig.routingMark;
   rawConfig['mixed-port'] = realPatchConfig.mixedPort;
   rawConfig['port'] = realPatchConfig.port;
   rawConfig['socks-port'] = realPatchConfig.socksPort;
-  rawConfig['redir-port'] = realPatchConfig.redirPort;
-  rawConfig['tproxy-port'] = realPatchConfig.tproxyPort;
+  // The Windows build cannot retrieve REDIR destinations or create
+  // transparent Linux TPROXY sockets. Use the native TUN inbound instead.
+  rawConfig['redir-port'] = Platform.isWindows ? 0 : realPatchConfig.redirPort;
+  rawConfig['tproxy-port'] = Platform.isWindows ? 0 : realPatchConfig.tproxyPort;
+  if (Platform.isWindows) {
+    rawConfig.remove('inbound-mptcp');
+    rawConfig.remove('external-controller-routing-mark');
+  }
   rawConfig['find-process-mode'] = realPatchConfig.findProcessMode.name;
   rawConfig['allow-lan'] = realPatchConfig.allowLan;
   // The app owns local inbound authentication; a profile-provided
@@ -365,6 +371,7 @@ Future<RealProfile> _makeRealProfileTask(MakeRealProfileState data) async {
       keepEmpty: data.keepEmptyDnsOverrides,
     ),
   );
+  if (Platform.isWindows) rawDns.remove('listen-routing-mark');
   rawConfig['dns'] = rawDns;
   final ntpOverride = overrides.ntp.overrideJson(
     overrides.ntpOverrideKeys,

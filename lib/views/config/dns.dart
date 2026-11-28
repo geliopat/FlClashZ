@@ -160,8 +160,10 @@ class _DnsOverrideSpec extends OverrideSpec<DnsOverrideKey, Dns> {
   String title(AppLocalizations l) => 'DNS';
 
   @override
-  List<DnsOverrideKey> get values =>
-      keys == null || system.isWindows ? DnsOverrideKey.values : [...?keys];
+  List<DnsOverrideKey> get values => [
+    for (final key in keys == null || system.isWindows ? DnsOverrideKey.values : keys!)
+      if (!system.isWindows || key != DnsOverrideKey.listenRoutingMark) key,
+  ];
 
   @override
   String get yamlSection => 'dns';

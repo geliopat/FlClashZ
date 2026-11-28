@@ -10,8 +10,6 @@ enum MihomoValueKind { boolean, integer, string, strings }
 /// arbitrary override surface. Existing typed editors own their fields.
 const additionalMihomoKeys = <String, MihomoValueKind>{
   'inbound-tfo': MihomoValueKind.boolean,
-  // Accepted by the core; actual MPTCP availability depends on the OS.
-  'inbound-mptcp': MihomoValueKind.boolean,
   'lan-allowed-ips': MihomoValueKind.strings,
   'lan-disallowed-ips': MihomoValueKind.strings,
   'bind-address': MihomoValueKind.string,
@@ -100,12 +98,12 @@ Map<String, Object> decodeAdditionalSettings(String content) {
   final decoded = loadPlainYaml(content);
   if (decoded == null) return {};
   if (decoded is! Map) throw const FormatException('Additional settings must be a mapping');
-  // These two keys existed only in the unreleased additional editor.
-  // Retire its obsolete local overrides without invalidating other settings.
+  // Retire obsolete and unsupported Windows overrides from the unreleased
+  // additional editor without invalidating the other settings.
   // Legacy subscription fields are handled separately by the core overlay.
   return {
     for (final e in decoded.entries)
-      if (!const {'sniffer.sniffing', 'sniffer.port-whitelist'}.contains(e.key))
+      if (!const {'sniffer.sniffing', 'sniffer.port-whitelist', 'inbound-mptcp'}.contains(e.key))
         e.key.toString(): _isStoredTunAlias(e.key.toString())
             ? _decodeStoredTunAlias(e.key.toString(), e.value)
             : validateAdditionalValue(e.key.toString(), e.value),
