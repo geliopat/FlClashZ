@@ -30,8 +30,6 @@ const additionalMihomoKeys = <String, MihomoValueKind>{
   'tun.inet6-route-address': MihomoValueKind.strings,
   'tun.inet4-route-exclude-address': MihomoValueKind.strings,
   'tun.inet6-route-exclude-address': MihomoValueKind.strings,
-  'sniffer.sniffing': MihomoValueKind.strings,
-  'sniffer.port-whitelist': MihomoValueKind.strings,
 };
 
 /// Never infer absence from null/false/zero. Map keys are fixed paths only;
@@ -59,7 +57,7 @@ Object validateAdditionalValue(String path, Object? value) {
     MihomoValueKind.boolean => value is bool,
     MihomoValueKind.integer => value is int && value >= 0 && value <= 0x7fffffff,
     MihomoValueKind.string => value is String,
-    MihomoValueKind.strings => value is List && value.every((item) => item is String || (path == 'sniffer.port-whitelist' && item is int)),
+    MihomoValueKind.strings => value is List && value.every((item) => item is String),
   };
   if (!valid) throw FormatException('Invalid value for $path');
   if (kind == MihomoValueKind.strings) return (value as List).map((item) => item.toString()).toList();
@@ -70,7 +68,14 @@ Map<String, Object> decodeAdditionalSettings(String content) {
   final decoded = loadPlainYaml(content);
   if (decoded == null) return {};
   if (decoded is! Map) throw const FormatException('Additional settings must be a mapping');
-  return {for (final e in decoded.entries) e.key.toString(): validateAdditionalValue(e.key.toString(), e.value)};
+  // These two keys existed only in the unreleased additional editor.
+  // Retire its obsolete local overrides without invalidating other settings.
+  // Legacy subscription fields are handled separately by the core overlay.
+  return {
+    for (final e in decoded.entries)
+      if (!const {'sniffer.sniffing', 'sniffer.port-whitelist'}.contains(e.key))
+        e.key.toString(): validateAdditionalValue(e.key.toString(), e.value),
+  };
 }
 
 /// Restore explicitly supplied section values before the application's

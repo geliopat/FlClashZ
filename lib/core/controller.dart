@@ -45,7 +45,7 @@ class CoreController {
   }
 
   final Duration _snapshotMaxAge;
-  final _engineDiagnosticsScheduler = SerialTaskScheduler();
+  final _engineDiagnosticsScheduler = TaskPool(1);
   int _engineDiagnosticsGeneration = 0;
   late final _connectionSnapshots = ConnectionSnapshotReader(_interface.getConnections, maxAge: _snapshotMaxAge);
 
@@ -513,7 +513,7 @@ class CoreController {
     required bool chainDiagnostics,
   }) {
     final generation = _engineDiagnosticsGeneration;
-    return _engineDiagnosticsScheduler.run(() {
+    return _engineDiagnosticsScheduler.run(() async {
       if (generation != _engineDiagnosticsGeneration) {
         throw const CoreMethodException(
           code: 'no_response', message: 'Core diagnostics request superseded',

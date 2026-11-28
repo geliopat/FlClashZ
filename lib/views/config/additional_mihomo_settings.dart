@@ -11,7 +11,7 @@ import 'package:material_ui/material_ui.dart';
 /// The existing editors retain ownership of their modeled fields. This page
 /// lists only remaining fields from the pinned core, using the same profile
 /// storage/refresh pipeline and YAML editor rather than a second DNS/TUN UI.
-enum AdditionalMihomoSection { general, tun, sniffer }
+enum AdditionalMihomoSection { general, tun }
 
 class AdditionalMihomoSettingsView extends ConsumerWidget {
   const AdditionalMihomoSettingsView({
@@ -24,9 +24,8 @@ class AdditionalMihomoSettingsView extends ConsumerWidget {
 
   bool _belongs(String path) => switch (section) {
     AdditionalMihomoSection.general =>
-        !path.startsWith('tun.') && !path.startsWith('sniffer.'),
+        !path.startsWith('tun.'),
     AdditionalMihomoSection.tun => path.startsWith('tun.'),
-    AdditionalMihomoSection.sniffer => path.startsWith('sniffer.'),
   };
 
   void _save(WidgetRef ref, String path, Object? value, {bool remove = false}) {
@@ -110,26 +109,15 @@ class AdditionalMihomoSettingsView extends ConsumerWidget {
     final listed = available.where((path) =>
       local.containsKey(path) || additionalSourceOf(explicit, path).present).toList();
     final absent = available.where((path) => !listed.contains(path)).toList();
-    final sniff = additionalSourceOf(explicit, 'sniffer.sniff').value;
-    final hasModernSniff = (sniff is Map && sniff.isNotEmpty) ||
-        (profile?.overrides.snifferOverrideKeys.any((key) => key.parent == 'sniff') ?? false);
     String label(Object? value) => inheritedOverrideValueLabel(value, russian: ru);
     return BaseScaffold(
       title: switch (section) {
         AdditionalMihomoSection.general => ru ? 'Дополнительные параметры Mihomo' : 'Additional Mihomo settings',
         AdditionalMihomoSection.tun => ru ? 'Дополнительные параметры TUN' : 'Additional TUN settings',
-        AdditionalMihomoSection.sniffer => ru ? 'Устаревшие параметры Sniffer' : 'Legacy Sniffer settings',
       },
       body: ListView(
         padding: EdgeInsets.fromLTRB(16, context.sectionsTopPadding, 16, 16 + context.bottomInset),
         children: [
-          if (section == AdditionalMihomoSection.sniffer)
-            Padding(padding: const EdgeInsets.all(8), child: Text(
-              hasModernSniff
-                  ? (ru ? 'Z3 использует sniff, а sniffing и port-whitelist игнорирует.' : 'Z3 uses sniff and ignores sniffing and port-whitelist.')
-                  : (ru ? 'Параметры совместимости со старым YAML. Предпочтительно использовать раздел Sniffer.' : 'Legacy YAML compatibility. Prefer the Sniffer section.'),
-              style: context.listCaptionStyle,
-            )),
           generateSection(items: [
             for (final path in listed)
               Builder(builder: (context) {
