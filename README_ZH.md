@@ -42,7 +42,7 @@ FlClashZ 是 [FlClashX](https://github.com/pluralplay/FlClashX) 的独立分支�
 | TUN、系统代理及路由规则 | 启动、停止和重启 |
 | 代理组、DNS、连接及日志 | 内置 Lua/BAT 策略及导入 |
 | 节点和代理组自动延迟测试 | 自动策略选择、历史及故障转移 |
-| 配置覆盖、脚本和备份 | 可用性诊断和列表更新 |
+| 配置覆盖和脚本 | 可用性诊断和列表更新 |
 
 Mihomo 管理代理路由与 DNS，Zapret 按所选模式及策略能力工作。支持 STRICT SPLIT、FULL BYPASS、联动启动和自动恢复设置。
 

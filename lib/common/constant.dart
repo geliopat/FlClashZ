@@ -210,5 +210,4 @@ const main = (config) => {
   return config;
 }''';
 
-const backupDatabaseName = 'database.sqlite';
 const configJsonName = 'config.json';

@@ -353,9 +353,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "forkScreeningHint": MessageLookupByLibrary.simpleMessage("Discord et GoogleVideo n’ont pas été testés."),
     "forkModeRestartHint": MessageLookupByLibrary.simpleMessage("Lorsque Zapret fonctionne, le mode est appliqué immédiatement par un redémarrage."),
     "forkAverage": MessageLookupByLibrary.simpleMessage("moyenne"),
-    "forkRestoreBackupQuestion": MessageLookupByLibrary.simpleMessage("Restaurer la sauvegarde ?"),
-    "forkRestoreBackupHint": MessageLookupByLibrary.simpleMessage("Le fichier actuel sera remplacé par le contenu du .bak. La version actuelle sera également enregistrée dans le .bak."),
-    "forkBackupRestored": MessageLookupByLibrary.simpleMessage("Sauvegarde restaurée. La version précédente est enregistrée dans le nouveau .bak."),
     "forkEmptySourceFile": MessageLookupByLibrary.simpleMessage("La source a renvoyé un fichier vide ou trop court"),
     "forkSourceNoEntries": MessageLookupByLibrary.simpleMessage("Mise à jour refusée : la source ne contient aucune entrée"),
     "forkKeepEmptyTemplate": MessageLookupByLibrary.simpleMessage("Modèle vide ; fichier local conservé"),
@@ -541,7 +538,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "forkEditList": MessageLookupByLibrary.simpleMessage("Modifier la liste"),
     "forkUpdateLists": MessageLookupByLibrary.simpleMessage("Mettre à jour les listes"),
     "forkReloadLists": MessageLookupByLibrary.simpleMessage("Recharger les listes"),
-    "forkRestoreBackup": MessageLookupByLibrary.simpleMessage("Restaurer la sauvegarde"),
     "forkVerboseEngine": MessageLookupByLibrary.simpleMessage("Sortie détaillée du moteur"),
     "forkResetSettings": MessageLookupByLibrary.simpleMessage("Réinitialiser les paramètres"),
     "forkMode": MessageLookupByLibrary.simpleMessage("Mode"),
@@ -617,12 +613,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "additionalPrefix": MessageLookupByLibrary.simpleMessage("Préfixe du nom"),
     "additionalSuffix": MessageLookupByLibrary.simpleMessage("Suffixe du nom"),
     "address": MessageLookupByLibrary.simpleMessage("Adresse"),
-    "addressHelp": MessageLookupByLibrary.simpleMessage(
-      "Adresse du serveur WebDAV",
-    ),
-    "addressTip": MessageLookupByLibrary.simpleMessage(
-      "Veuillez saisir une adresse WebDAV valide",
-    ),
     "advancedConfig": MessageLookupByLibrary.simpleMessage(
       "Configuration avancée",
     ),
@@ -700,14 +690,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Intervalle de mise à jour automatique",
     ),
     "back": MessageLookupByLibrary.simpleMessage("Retour"),
-    "backup": MessageLookupByLibrary.simpleMessage("Sauvegarde"),
-    "backupAndRestore": MessageLookupByLibrary.simpleMessage(
-      "Sauvegarde et restauration",
-    ),
-    "backupFromNewerVersion": MessageLookupByLibrary.simpleMessage(
-      "Cette sauvegarde provient d’une version plus récente de l’app. Mettez l’app à jour avant de la restaurer",
-    ),
-    "backupSuccess": MessageLookupByLibrary.simpleMessage("Sauvegarde réussie"),
     "basicInfo": MessageLookupByLibrary.simpleMessage("Infos de base"),
     "basicStrategy": MessageLookupByLibrary.simpleMessage("Stratégies de base"),
     "batchAdd": MessageLookupByLibrary.simpleMessage("Ajout groupé"),
@@ -1324,9 +1306,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Suivre la configuration",
     ),
     "intranetIP": MessageLookupByLibrary.simpleMessage("IP du réseau local"),
-    "invalidBackupFile": MessageLookupByLibrary.simpleMessage(
-      "Fichier de sauvegarde non valide",
-    ),
     "invalidCidrContent": MessageLookupByLibrary.simpleMessage(
       "Saisissez une plage d’IP au format CIDR, par exemple 192.168.0.0/16",
     ),
@@ -1679,9 +1658,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Choisir dans l’album",
     ),
     "pinWindow": MessageLookupByLibrary.simpleMessage("Épingler la fenêtre"),
-    "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
-      "Veuillez lier un WebDAV",
-    ),
     "pleaseEnterScriptName": MessageLookupByLibrary.simpleMessage(
       "Veuillez saisir un nom de script",
     ),
@@ -1709,9 +1685,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portTip": m60,
     "portValue": m61,
     "ports": MessageLookupByLibrary.simpleMessage("Ports"),
-    "preChannelTip": MessageLookupByLibrary.simpleMessage(
-      "Cette préversion est une application à part et ne voit pas les profils de FlClashX. Pour les récupérer, faites une sauvegarde dans FlClashX sous Sauvegarde et restauration et restaurez-la ici, ou ajoutez de nouveau vos abonnements par lien.",
-    ),
+    "preChannelTip": MessageLookupByLibrary.simpleMessage("Cette préversion est une application à part. Ajoutez de nouveau vos abonnements par lien ou importez des fichiers de profil individuels."),
     "preChannelTipTitle": MessageLookupByLibrary.simpleMessage("FlClashX Pre"),
     "preSharedKey": MessageLookupByLibrary.simpleMessage("Clé prépartagée"),
     "preferred": MessageLookupByLibrary.simpleMessage("Préféré"),
@@ -1814,9 +1788,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "proxyChainUnchainableHop": m78,
     "proxyChainUnreadableFilter": m79,
     "proxyChains": MessageLookupByLibrary.simpleMessage("Chaîne de proxys"),
-    "proxyChainsDesc": MessageLookupByLibrary.simpleMessage(
-      "Le trafic passe par les sauts dans l’ordre et les sites ne voient que la sortie. Les chaînes restent sur cet appareil et ne sont pas encore sauvegardées.",
-    ),
+    "proxyChainsDesc": MessageLookupByLibrary.simpleMessage("Le trafic passe par les sauts dans l’ordre et les sites ne voient que la sortie. Les chaînes restent sur cet appareil."),
     "proxyChainsTitle": MessageLookupByLibrary.simpleMessage(
       "Chaînes de proxys",
     ),
@@ -1919,23 +1891,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "restart": MessageLookupByLibrary.simpleMessage("Redémarrer"),
     "restartCoreTip": MessageLookupByLibrary.simpleMessage(
       "Voulez-vous vraiment redémarrer le cœur ?",
-    ),
-    "restore": MessageLookupByLibrary.simpleMessage("Restaurer"),
-    "restoreAllData": MessageLookupByLibrary.simpleMessage(
-      "Restaurer toutes les données",
-    ),
-    "restoreOnlyConfig": MessageLookupByLibrary.simpleMessage(
-      "Restaurer uniquement les profils",
-    ),
-    "restoreStrategy": MessageLookupByLibrary.simpleMessage(
-      "Stratégie de restauration",
-    ),
-    "restoreStrategyCompatible": MessageLookupByLibrary.simpleMessage(
-      "Compatible",
-    ),
-    "restoreStrategyOverride": MessageLookupByLibrary.simpleMessage("Écraser"),
-    "restoreSuccess": MessageLookupByLibrary.simpleMessage(
-      "Restauration réussie",
     ),
     "result": MessageLookupByLibrary.simpleMessage("Résultat"),
     "retry": MessageLookupByLibrary.simpleMessage("Réessayer"),
@@ -2514,9 +2469,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "vpnPermissionNotGranted": m95,
     "vpnRestrictedByAdministrator": MessageLookupByLibrary.simpleMessage(
       "L\'administrateur de cet appareil restreint le VPN",
-    ),
-    "webDAVConfiguration": MessageLookupByLibrary.simpleMessage(
-      "Configuration WebDAV",
     ),
     "website": MessageLookupByLibrary.simpleMessage("Site web"),
     "whitelistMode": MessageLookupByLibrary.simpleMessage("Mode liste blanche"),

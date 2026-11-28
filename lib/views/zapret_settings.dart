@@ -24,7 +24,6 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
   String? _selected;
   bool _loading = true;
   bool _listLoaded = false;
-  bool _saving = false;
   bool _updating = false;
   String? _error;
   String? _notice;
@@ -112,53 +111,8 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
     }
   }
 
-  Future<void> _restoreBackup() async {
-    final filename = _selected;
-    if (filename == null || !_listLoaded || _saving || _updating || _loading) return;
-    final l = AppLocalizations.of(context);
-    final confirmed = await showFloatingDialog<bool>(
-      context: context,
-      child: CommonDialog(
-        title: l.forkRestoreBackupQuestion,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AppLocalizations.of(context).cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(AppLocalizations.of(context).restore),
-          ),
-        ],
-        child: Text('$filename · $filename.bak\n${l.forkRestoreBackupHint}'),
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() {
-      _saving = true;
-      _error = null;
-      _notice = null;
-    });
-    try {
-      await zapretListUpdater.edit(() => helperClient.restoreZapretList(filename));
-      if (!mounted) return;
-      await _loadLists(select: filename);
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-        _notice = '$filename.bak · ${l.forkBackupRestored}';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-        _error = error is HelperException ? error.message : error.toString();
-      });
-    }
-  }
-
   Future<void> _updateLists() async {
-    if (_updating || _saving || _lists.isEmpty) return;
+    if (_updating || _lists.isEmpty) return;
     final l = AppLocalizations.of(context);
     setState(() {
       _updating = true;
@@ -251,7 +205,7 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
   @override
   Widget build(BuildContext context) {
     final zapret = ref.watch(zapretControllerProvider);
-    final listsBusy = _loading || _saving || _updating || _updatingHelper;
+    final listsBusy = _loading || _updating || _updatingHelper;
     final sections = <Widget>[
       const ManagedSettingsHint(keys: {zapretStartSetting}),
       generateSection(
@@ -358,7 +312,7 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
                 return '${item.filename} · ${item.entries}';
               },
               onChanged: (value) {
-                if (_loading || _saving || _updating || _updatingHelper) return;
+                if (_loading || _updating || _updatingHelper) return;
                 if (value != _selected) unawaited(_selectList(value));
               },
             ),
@@ -421,19 +375,6 @@ class _ZapretSettingsViewState extends ConsumerState<ZapretSettingsView> {
                 : null,
             onTap: listsBusy ? null : () => _loadLists(),
           ),
-          if (_selected != null)
-            ListItem(
-              leading: const GlyphIcon(AppGlyphs.reset),
-              title: Text(AppLocalizations.of(context).forkRestoreBackup),
-              subtitle: Text('${_selected!}.bak'),
-              trailing: _saving
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CommonCircleLoading(size: 18),
-                    )
-                  : null,
-              onTap: !_listLoaded || listsBusy ? null : _restoreBackup,
-            ),
         ],
         footer:
             AppLocalizations.of(context).forkListsFooter,

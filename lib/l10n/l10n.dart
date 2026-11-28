@@ -266,8 +266,6 @@ class AppLocalizations {
 
   String get forkReloadLists => Intl.message('Reload lists', name: 'forkReloadLists', desc: '', args: []);
 
-  String get forkRestoreBackup => Intl.message('Restore backup', name: 'forkRestoreBackup', desc: '', args: []);
-
   String get forkVerboseEngine => Intl.message('Verbose engine output', name: 'forkVerboseEngine', desc: '', args: []);
 
   String get forkResetSettings => Intl.message('Reset settings', name: 'forkResetSettings', desc: '', args: []);
@@ -405,9 +403,6 @@ class AppLocalizations {
   String get forkScreeningHint => Intl.message('Discord and GoogleVideo were not tested.', name: 'forkScreeningHint', desc: '', args: []);
   String get forkModeRestartHint => Intl.message('When Zapret is running, the mode is applied immediately by restarting it.', name: 'forkModeRestartHint', desc: '', args: []);
   String get forkAverage => Intl.message('average', name: 'forkAverage', desc: '', args: []);
-  String get forkRestoreBackupQuestion => Intl.message('Restore backup?', name: 'forkRestoreBackupQuestion', desc: '', args: []);
-  String get forkRestoreBackupHint => Intl.message('The current file will be replaced with its .bak contents. The current version will also be saved to .bak.', name: 'forkRestoreBackupHint', desc: '', args: []);
-  String get forkBackupRestored => Intl.message('Backup restored. The previous version is saved in the new .bak.', name: 'forkBackupRestored', desc: '', args: []);
   String get forkEmptySourceFile => Intl.message('Source returned an empty or too short file', name: 'forkEmptySourceFile', desc: '', args: []);
   String get forkSourceNoEntries => Intl.message('Update rejected: source has no entries', name: 'forkSourceNoEntries', desc: '', args: []);
   String get forkKeepEmptyTemplate => Intl.message('Empty template; local file retained', name: 'forkKeepEmptyTemplate', desc: '', args: []);
@@ -1622,34 +1617,9 @@ class AppLocalizations {
     return Intl.message('Account', name: 'account', desc: '', args: []);
   }
 
-  /// `Backup`
-  String get backup {
-    return Intl.message('Backup', name: 'backup', desc: '', args: []);
-  }
-
-  /// `Backup successful`
-  String get backupSuccess {
-    return Intl.message(
-      'Backup successful',
-      name: 'backupSuccess',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `No info`
   String get noInfo {
     return Intl.message('No info', name: 'noInfo', desc: '', args: []);
-  }
-
-  /// `Please bind WebDAV`
-  String get pleaseBindWebDAV {
-    return Intl.message(
-      'Please bind WebDAV',
-      name: 'pleaseBindWebDAV',
-      desc: '',
-      args: [],
-    );
   }
 
   /// `Bind`
@@ -1667,39 +1637,9 @@ class AppLocalizations {
     );
   }
 
-  /// `WebDAV configuration`
-  String get webDAVConfiguration {
-    return Intl.message(
-      'WebDAV configuration',
-      name: 'webDAVConfiguration',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Address`
   String get address {
     return Intl.message('Address', name: 'address', desc: '', args: []);
-  }
-
-  /// `WebDAV server address`
-  String get addressHelp {
-    return Intl.message(
-      'WebDAV server address',
-      name: 'addressHelp',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Please enter a valid WebDAV address`
-  String get addressTip {
-    return Intl.message(
-      'Please enter a valid WebDAV address',
-      name: 'addressTip',
-      desc: '',
-      args: [],
-    );
   }
 
   /// `Password`
@@ -3977,36 +3917,6 @@ class AppLocalizations {
     );
   }
 
-  /// `Restore strategy`
-  String get restoreStrategy {
-    return Intl.message(
-      'Restore strategy',
-      name: 'restoreStrategy',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Override`
-  String get restoreStrategyOverride {
-    return Intl.message(
-      'Override',
-      name: 'restoreStrategyOverride',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Compatible`
-  String get restoreStrategyCompatible {
-    return Intl.message(
-      'Compatible',
-      name: 'restoreStrategyCompatible',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Logs test`
   String get logsTest {
     return Intl.message('Logs test', name: 'logsTest', desc: '', args: []);
@@ -4912,16 +4822,6 @@ class AppLocalizations {
     );
   }
 
-  /// `This backup comes from a newer version of the app. Update the app before restoring it`
-  String get backupFromNewerVersion {
-    return Intl.message(
-      'This backup comes from a newer version of the app. Update the app before restoring it',
-      name: 'backupFromNewerVersion',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `The request timed out. Check your network or proxy, then try again`
   String get networkTimeoutError {
     return Intl.message(
@@ -5042,64 +4942,9 @@ class AppLocalizations {
     );
   }
 
-  /// `Invalid backup file`
-  String get invalidBackupFile {
-    return Intl.message(
-      'Invalid backup file',
-      name: 'invalidBackupFile',
-      desc: '',
-      args: [],
-    );
-  }
-
   /// `Prune cache`
   String get pruneCache {
     return Intl.message('Prune cache', name: 'pruneCache', desc: '', args: []);
-  }
-
-  /// `Backup and restore`
-  String get backupAndRestore {
-    return Intl.message(
-      'Backup and restore',
-      name: 'backupAndRestore',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Restore`
-  String get restore {
-    return Intl.message('Restore', name: 'restore', desc: '', args: []);
-  }
-
-  /// `Restore successful`
-  String get restoreSuccess {
-    return Intl.message(
-      'Restore successful',
-      name: 'restoreSuccess',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Restore profiles only`
-  String get restoreOnlyConfig {
-    return Intl.message(
-      'Restore profiles only',
-      name: 'restoreOnlyConfig',
-      desc: '',
-      args: [],
-    );
-  }
-
-  /// `Restore all data`
-  String get restoreAllData {
-    return Intl.message(
-      'Restore all data',
-      name: 'restoreAllData',
-      desc: '',
-      args: [],
-    );
   }
 
   /// `Add profile`
@@ -8653,10 +8498,10 @@ class AppLocalizations {
     );
   }
 
-  /// `This pre-release is a separate app and can't see FlClashX's profiles. To bring them over, make a backup in FlClashX under Backup and restore and restore it here, or add your subscriptions again by link.`
+  /// `This pre-release is a separate app. Add your subscriptions again by link or import individual profile files.`
   String get preChannelTip {
     return Intl.message(
-      'This pre-release is a separate app and can\'t see FlClashX\'s profiles. To bring them over, make a backup in FlClashX under Backup and restore and restore it here, or add your subscriptions again by link.',
+      'This pre-release is a separate app. Add your subscriptions again by link or import individual profile files.',
       name: 'preChannelTip',
       desc: '',
       args: [],
@@ -8698,10 +8543,10 @@ class AppLocalizations {
     return Intl.message('Chain', name: 'proxyChain', desc: '', args: []);
   }
 
-  /// `Traffic passes the hops in order, and sites see only the exit. Chains are kept on this device and are not in backups yet.`
+  /// `Traffic passes the hops in order, and sites see only the exit. Chains are kept on this device.`
   String get proxyChainsDesc {
     return Intl.message(
-      'Traffic passes the hops in order, and sites see only the exit. Chains are kept on this device and are not in backups yet.',
+      'Traffic passes the hops in order, and sites see only the exit. Chains are kept on this device.',
       name: 'proxyChainsDesc',
       desc: '',
       args: [],

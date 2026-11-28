@@ -44,7 +44,7 @@ Use the installer for normal use and built-in update installation. For portable 
 | TUN, system proxy and routing rules | Start, stop and restart controls |
 | Proxy groups, DNS, connections and logs | Bundled Lua/BAT strategies and import |
 | Automatic latency checks for nodes and groups | Automatic strategy selection, history and fallback |
-| Overrides, scripts and backups | Availability diagnostics and list updates |
+| Overrides and scripts | Availability diagnostics and list updates |
 
 Mihomo handles proxy routing and DNS. Zapret follows the selected mode and the strategy's capabilities. STRICT SPLIT, FULL BYPASS, linked startup, automatic selection and recovery are configurable.
 

@@ -344,9 +344,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "forkScreeningHint": MessageLookupByLibrary.simpleMessage("Discord и GoogleVideo не проверялись."),
     "forkModeRestartHint": MessageLookupByLibrary.simpleMessage("При работающем Zapret режим применяется сразу с перезапуском."),
     "forkAverage": MessageLookupByLibrary.simpleMessage("среднее"),
-    "forkRestoreBackupQuestion": MessageLookupByLibrary.simpleMessage("Восстановить резервную копию?"),
-    "forkRestoreBackupHint": MessageLookupByLibrary.simpleMessage("Текущий файл будет заменён содержимым .bak. Текущая версия также сохранится в .bak."),
-    "forkBackupRestored": MessageLookupByLibrary.simpleMessage("Резервная копия восстановлена. Предыдущая версия сохранена в новой .bak."),
     "forkEmptySourceFile": MessageLookupByLibrary.simpleMessage("Источник вернул пустой или слишком короткий файл"),
     "forkSourceNoEntries": MessageLookupByLibrary.simpleMessage("Обновление отклонено: источник не содержит записей"),
     "forkKeepEmptyTemplate": MessageLookupByLibrary.simpleMessage("Пустой шаблон, локальный файл сохранён"),
@@ -532,7 +529,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "forkEditList": MessageLookupByLibrary.simpleMessage("Редактировать список"),
     "forkUpdateLists": MessageLookupByLibrary.simpleMessage("Обновить списки"),
     "forkReloadLists": MessageLookupByLibrary.simpleMessage("Перечитать списки"),
-    "forkRestoreBackup": MessageLookupByLibrary.simpleMessage("Восстановить резервную копию"),
     "forkVerboseEngine": MessageLookupByLibrary.simpleMessage("Подробный вывод движка"),
     "forkResetSettings": MessageLookupByLibrary.simpleMessage("Сброс настроек"),
     "forkMode": MessageLookupByLibrary.simpleMessage("Режим"),
@@ -608,10 +604,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "additionalPrefix": MessageLookupByLibrary.simpleMessage("Префикс имени"),
     "additionalSuffix": MessageLookupByLibrary.simpleMessage("Суффикс имени"),
     "address": MessageLookupByLibrary.simpleMessage("Адрес"),
-    "addressHelp": MessageLookupByLibrary.simpleMessage("Адрес сервера WebDAV"),
-    "addressTip": MessageLookupByLibrary.simpleMessage(
-      "Введите корректный адрес WebDAV",
-    ),
     "advancedConfig": MessageLookupByLibrary.simpleMessage(
       "Расширенная конфигурация",
     ),
@@ -687,16 +679,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Интервал автообновления",
     ),
     "back": MessageLookupByLibrary.simpleMessage("Назад"),
-    "backup": MessageLookupByLibrary.simpleMessage("Резервное копирование"),
-    "backupAndRestore": MessageLookupByLibrary.simpleMessage(
-      "Резервное копирование и восстановление",
-    ),
-    "backupFromNewerVersion": MessageLookupByLibrary.simpleMessage(
-      "Резервная копия создана более новой версией приложения. Обновите приложение перед восстановлением",
-    ),
-    "backupSuccess": MessageLookupByLibrary.simpleMessage(
-      "Резервная копия создана",
-    ),
     "basicInfo": MessageLookupByLibrary.simpleMessage("Основная информация"),
     "basicStrategy": MessageLookupByLibrary.simpleMessage("Базовые политики"),
     "batchAdd": MessageLookupByLibrary.simpleMessage("Массовое добавление"),
@@ -1295,9 +1277,6 @@ class MessageLookup extends MessageLookupByLibrary {
       "Как в конфигурации",
     ),
     "intranetIP": MessageLookupByLibrary.simpleMessage("Внутренний IP"),
-    "invalidBackupFile": MessageLookupByLibrary.simpleMessage(
-      "Недопустимый файл резервной копии",
-    ),
     "invalidCidrContent": MessageLookupByLibrary.simpleMessage(
       "Введите диапазон IP в формате CIDR, например 192.168.0.0/16",
     ),
@@ -1646,9 +1625,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "pinWindow": MessageLookupByLibrary.simpleMessage(
       "Закрепить поверх всех окон",
     ),
-    "pleaseBindWebDAV": MessageLookupByLibrary.simpleMessage(
-      "Привяжите WebDAV",
-    ),
     "pleaseEnterScriptName": MessageLookupByLibrary.simpleMessage(
       "Введите название скрипта",
     ),
@@ -1672,9 +1648,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "portTip": m60,
     "portValue": m61,
     "ports": MessageLookupByLibrary.simpleMessage("Порты"),
-    "preChannelTip": MessageLookupByLibrary.simpleMessage(
-      "Это предварительная версия, она стоит отдельным приложением и не видит профили FlClashX. Чтобы перенести их, сделайте резервную копию в FlClashX в разделе «Резервное копирование и восстановление» и восстановите её здесь, или добавьте подписки заново по ссылке.",
-    ),
+    "preChannelTip": MessageLookupByLibrary.simpleMessage("Это предварительная версия, установленная как отдельное приложение. Добавьте подписки заново по ссылке или импортируйте отдельные файлы профилей."),
     "preChannelTipTitle": MessageLookupByLibrary.simpleMessage("FlClashX Pre"),
     "preSharedKey": MessageLookupByLibrary.simpleMessage("Общий ключ"),
     "preferred": MessageLookupByLibrary.simpleMessage("Предпочтительный"),
@@ -1771,9 +1745,7 @@ class MessageLookup extends MessageLookupByLibrary {
     "proxyChainUnchainableHop": m78,
     "proxyChainUnreadableFilter": m79,
     "proxyChains": MessageLookupByLibrary.simpleMessage("Цепочка прокси"),
-    "proxyChainsDesc": MessageLookupByLibrary.simpleMessage(
-      "Трафик проходит звенья по порядку, сайты видят только выход. Цепочки хранятся на этом устройстве и пока не попадают в резервную копию.",
-    ),
+    "proxyChainsDesc": MessageLookupByLibrary.simpleMessage("Трафик проходит звенья по порядку, сайты видят только выход. Цепочки хранятся на этом устройстве."),
     "proxyChainsTitle": MessageLookupByLibrary.simpleMessage("Цепочки"),
     "proxyGroup": MessageLookupByLibrary.simpleMessage("Группа прокси"),
     "proxyGroupEmpty": MessageLookupByLibrary.simpleMessage(
@@ -1864,25 +1836,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "restart": MessageLookupByLibrary.simpleMessage("Перезапустить"),
     "restartCoreTip": MessageLookupByLibrary.simpleMessage(
       "Перезапустить ядро?",
-    ),
-    "restore": MessageLookupByLibrary.simpleMessage("Восстановить"),
-    "restoreAllData": MessageLookupByLibrary.simpleMessage(
-      "Восстановить все данные",
-    ),
-    "restoreOnlyConfig": MessageLookupByLibrary.simpleMessage(
-      "Восстановить только профили",
-    ),
-    "restoreStrategy": MessageLookupByLibrary.simpleMessage(
-      "Стратегия восстановления",
-    ),
-    "restoreStrategyCompatible": MessageLookupByLibrary.simpleMessage(
-      "Совместимость",
-    ),
-    "restoreStrategyOverride": MessageLookupByLibrary.simpleMessage(
-      "Перезапись",
-    ),
-    "restoreSuccess": MessageLookupByLibrary.simpleMessage(
-      "Восстановление выполнено",
     ),
     "result": MessageLookupByLibrary.simpleMessage("Результат"),
     "retry": MessageLookupByLibrary.simpleMessage("Повторить"),
@@ -2457,9 +2410,6 @@ class MessageLookup extends MessageLookupByLibrary {
     "vpnPermissionNotGranted": m95,
     "vpnRestrictedByAdministrator": MessageLookupByLibrary.simpleMessage(
       "VPN на этом устройстве ограничен администратором",
-    ),
-    "webDAVConfiguration": MessageLookupByLibrary.simpleMessage(
-      "Настройка WebDAV",
     ),
     "website": MessageLookupByLibrary.simpleMessage("Сайт"),
     "whitelistMode": MessageLookupByLibrary.simpleMessage(

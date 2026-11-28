@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:fl_clash/common/app_localizations.dart';
 import 'package:fl_clash/common/network_error.dart';
-import 'package:fl_clash/common/webdav.dart';
 import 'package:fl_clash/core/desktop/helper_client.dart';
 import 'package:fl_clash/core/desktop/launch_policy.dart';
 import 'package:fl_clash/core/desktop/model.dart';
@@ -151,16 +150,6 @@ void main() {
       isNull,
     );
     expect(networkErrorMessage(StateError('boom'), appLocalizations), isNull);
-  });
-
-  test('maps WebDAV status failures like any HTTP response', () {
-    expect(
-      networkErrorMessage(
-        const DAVException(method: 'PUT', path: '/a', statusCode: 401),
-        appLocalizations,
-      ),
-      appLocalizations.networkAccessDeniedError(401),
-    );
   });
 
   test('maps Core request failures by their reason and status', () {
