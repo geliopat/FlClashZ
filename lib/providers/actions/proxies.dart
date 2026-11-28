@@ -664,10 +664,7 @@ class ProxiesAction extends _$ProxiesAction {
       return;
     }
     try {
-      final resolved = _resolveDelayTestTargets([
-        for (final group in groups)
-          (proxies: group.all, testUrl: group.testUrl),
-      ]);
+      final resolved = _resolveDelayTestTargets(autoDelayBatches(groups));
       final urlsByNode = <String, Set<String>>{};
       for (final target in resolved) {
         if (!isAutoDelayProbeable(target.proxyName)) continue;

@@ -1194,6 +1194,10 @@ void main() {
           .thenAnswer((_) async => const Delay(
             name: 'HK-02', url: _testUrl, value: 20,
           ));
+      when(() => core.asyncTestDelay(_testUrl, 'DIRECT', any()))
+          .thenAnswer((_) async => const Delay(
+            name: 'DIRECT', url: _testUrl, value: 5,
+          ));
       container.read(groupsProvider.notifier).update((_) => [
         _group('A', const [_proxy]),
         const Group(type: GroupType.Selector, name: 'B', hidden: false, testUrl: otherUrl,
@@ -1214,6 +1218,25 @@ void main() {
       expect(delays[otherUrl]?['HK-02'], 20);
       expect(container.read(pendingDelayTestsProvider), isEmpty);
       expect(container.read(delayTestingGroupsProvider), isEmpty);
+    });
+
+    test('global ping covers independent balancers and DIRECT without duplicates', () async {
+      final container = _delayContainer(buildContainer);
+      container.read(groupsProvider.notifier).update((_) => [
+        const Group(name: 'Balance', type: GroupType.LoadBalance, hidden: false,
+          all: [_proxy, Proxy(name: 'REJECT', type: 'Reject')]),
+        _group('Selector', const [_proxy]),
+      ]);
+      when(() => core.asyncTestDelay(_testUrl, any(), any())).thenAnswer(
+        (call) async => Delay(
+          name: call.positionalArguments[1] as String, url: _testUrl, value: 15,
+        ),
+      );
+      await actionOf(container).delayTestAllGroups();
+      verify(() => core.asyncTestDelay(_testUrl, 'Balance', any())).called(1);
+      verify(() => core.asyncTestDelay(_testUrl, 'HK-01', any())).called(1);
+      verify(() => core.asyncTestDelay(_testUrl, 'DIRECT', any())).called(1);
+      verifyNever(() => core.asyncTestDelay(_testUrl, 'REJECT', any()));
     });
 
     test('global test retries nodes hidden by the timeout filter', () async {

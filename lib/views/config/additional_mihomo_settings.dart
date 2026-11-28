@@ -122,7 +122,8 @@ class AdditionalMihomoSettingsView extends ConsumerWidget {
                           confirmText: context.appLocalizations.takeOver,
                         );
                         if (agreed != true || !context.mounted) return;
-                        try { _save(ref, path, value); } catch (_) { return; }
+                        // Opening or cancelling the editor must not replace
+                        // subscription ownership. Only a valid save does so.
                       }
                       if (context.mounted) await _edit(context, ref, path, value);
                     }),
@@ -145,7 +146,7 @@ class AdditionalMihomoSettingsView extends ConsumerWidget {
                   if (current == null || decodeAdditionalSettings(current.overrides.additionalSettingsYaml).containsKey(selected)) return;
                   final fallback = additionalSourceOf(defaults, selected);
                   final initial = fallback.value ?? additionalDefault(additionalMihomoKeys[selected]!);
-                  try { _save(ref, selected, initial); } catch (_) { return; }
+                  // Do not add a local override until the editor saves it.
                   if (context.mounted) await _edit(context, ref, selected, initial);
                 }),
           ]),
