@@ -28,6 +28,22 @@ class SettingsRecovery {
     await file.writeAsStringAtomically(raw);
   }
 
+  /// Capture and remove the independent copy before a destructive reset.
+  /// A non-file obstruction is an error, not an absent backup.
+  Future<String?> takeForClear() async {
+    final type = await FileSystemEntity.type(file.path, followLinks: false);
+    if (type == FileSystemEntityType.notFound) return null;
+    if (type != FileSystemEntityType.file) {
+      throw FileSystemException('Invalid settings recovery path', file.path);
+    }
+    final previous = await file.readAsString();
+    await file.delete();
+    return previous;
+  }
+
+  Future<void> restoreAfterFailedClear(String previous) =>
+      file.writeAsStringAtomically(previous);
+
   Future<void> clear() => file.safeDelete();
 }
 

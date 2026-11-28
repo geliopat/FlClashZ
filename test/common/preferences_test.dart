@@ -279,6 +279,28 @@ void main() {
     expect(await preferences.getConfigMap(), isNull);
   });
 
+  test('blocked independent backup prevents primary settings reset', () async {
+    final folder = await Directory.systemTemp.createTemp('flclashz-reset-');
+    final file = File('${folder.path}${Platform.pathSeparator}backup.json');
+    preferences.recoveryFileOverride = () async => file;
+    try {
+      const config = Config(themeProps: defaultThemeProps, currentProfileId: 42);
+      expect(await preferences.saveConfig(config), isTrue);
+      final saved = await file.rename('${file.path}.saved');
+      final obstruction = await Directory(file.path).create();
+      await expectLater(preferences.clearPreferences(), throwsA(isA<FileSystemException>()));
+      expect(Config.strictFromJson((await preferences.getConfigMap())!), config);
+      await obstruction.delete();
+      await saved.rename(file.path);
+      await preferences.clearPreferences();
+      expect(await file.exists(), isFalse);
+      expect(await preferences.getConfigMap(), isNull);
+    } finally {
+      preferences.recoveryFileOverride = () async => null;
+      await folder.delete(recursive: true);
+    }
+  });
+
   test('isInit resolves true once shared preferences are available', () async {
     expect(await preferences.isInit, isTrue);
   });

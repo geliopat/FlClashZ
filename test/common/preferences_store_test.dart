@@ -206,6 +206,38 @@ void main() {
     expect(await reopened.getAll(), isEmpty);
   });
 
+  test('clear cannot commit while the recovery destination is blocked', () async {
+    final store = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    expect(await store.setValue('Int', 'flutter.version', 42), isTrue);
+    final backupPath = '$path.last-good';
+    final backup = await File(backupPath).rename('$backupPath.saved');
+    final obstruction = await Directory(backupPath).create();
+    await File(join(obstruction.path, 'occupied')).create();
+    expect(await store.clear(), isFalse);
+    expect(await store.getAll(), {'flutter.version': 42});
+    expect(readFile(), {'flutter.version': 42});
+    await obstruction.delete(recursive: true);
+    await backup.rename(backupPath);
+    expect(await store.clear(), isTrue);
+    await File(path).delete();
+    final reopened = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    expect(await reopened.getAll(), isEmpty);
+  });
+
+  test('failed primary clear restores the previous recovery contents', () async {
+    final store = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    expect(await store.setValue('Int', 'flutter.version', 42), isTrue);
+    await File(path).delete();
+    final obstruction = await Directory(path).create();
+    await File(join(obstruction.path, 'occupied')).create();
+    expect(await store.clear(), isFalse);
+    expect(jsonDecode(await File('$path.last-good').readAsString()), {'flutter.version': 42});
+    expect(await store.getAll(), {'flutter.version': 42});
+    await obstruction.delete(recursive: true);
+    final reopened = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    expect(await reopened.getAll(), {'flutter.version': 42});
+  });
+
   test('backs SharedPreferences', () async {
     addTearDown(SharedPreferences.resetStatic);
     SharedPreferencesStorePlatform.instance = openStore();

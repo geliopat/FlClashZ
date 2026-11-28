@@ -73,7 +73,10 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
     }
   }
 
-  Future<bool> _update(void Function(Map<String, Object> values) change) {
+  Future<bool> _update(
+    void Function(Map<String, Object> values) change, {
+    bool clearing = false,
+  }) {
     final operation = _lastWrite.catchError((_) => false).then((_) async {
       try {
         final current = await _read();
@@ -81,7 +84,9 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
         change(next);
         final encoded = json.encode(next);
         final validated = _decode(encoded);
-        if (!await _write(encoded, previous: json.encode(current))) return false;
+        if (!await _write(encoded, previous: json.encode(current), clearing: clearing)) {
+          return false;
+        }
         _values = Future.value(validated);
         return true;
       } catch (_) {
@@ -94,22 +99,40 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
     return _lastWrite = operation;
   }
 
-  Future<bool> _write(String content, {required String previous}) async {
+  Future<bool> _write(
+    String content, {
+    required String previous,
+    required bool clearing,
+  }) async {
     final file = File(await _path);
     final backup = File('${file.path}.last-good');
+    var resetBackupPrepared = false;
     try {
-      if (enableRecovery && !await backup.exists() && await file.exists()) {
+      // A clear is destructive: never acknowledge it while an older recovery
+      // copy could still resurrect the cleared keys. Prepare it before primary.
+      if (enableRecovery && clearing) {
+        await backup.writeAsStringAtomically(content);
+        resetBackupPrepared = true;
+      } else if (enableRecovery && !await backup.exists() && await file.exists()) {
         await backup.writeAsStringAtomically(previous);
       }
       await file.writeAsStringAtomically(content);
     } catch (error) {
+      if (resetBackupPrepared) {
+        try {
+          await backup.writeAsStringAtomically(previous);
+        } catch (_) {
+          commonPrint.log('Unable to restore preferences backup after failed clear',
+              logLevel: LogLevel.warning);
+        }
+      }
       commonPrint.log(
         'Save preferences failed: ${compactError(error)}',
         logLevel: LogLevel.warning,
       );
       return false;
     }
-    if (enableRecovery) {
+    if (enableRecovery && !clearing) {
       try {
         await backup.writeAsStringAtomically(content);
       } catch (_) {
@@ -165,6 +188,7 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
     return _update(
       (values) =>
           values.removeWhere((key, _) => _matches(parameters.filter, key)),
+      clearing: true,
     );
   }
 

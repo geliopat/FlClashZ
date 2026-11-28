@@ -332,12 +332,25 @@ class Preferences {
     final operation = _configWrite.catchError((_) => false).then((_) async {
       final store = await _store.value;
       if (store == null) return false;
-      if (!await store.clear()) {
-        await store.reload();
-        return false;
+      final recovery = await _recoveryFile();
+      // Remove the independent recovery copy before clearing the primary. If
+      // this fails, the old primary is still intact and reset is not confirmed.
+      final previous = await recovery?.takeForClear();
+      var committed = false;
+      try {
+        committed = await store.clear();
+        if (!committed) await store.reload();
+        return committed;
+      } finally {
+        if (!committed && previous != null) {
+          try {
+            await recovery!.restoreAfterFailedClear(previous);
+          } catch (_) {
+            commonPrint.log('Unable to restore independent settings backup after failed clear',
+                logLevel: LogLevel.warning);
+          }
+        }
       }
-      await (await _recoveryFile())?.clear();
-      return true;
     });
     _configWrite = operation;
     if (!await operation) throw StateError('Unable to clear preferences');
