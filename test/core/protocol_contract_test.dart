@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fl_clash/core/event.dart';
+import 'package:fl_clash/core/controller.dart';
+import 'package:fl_clash/features/update/core_release_manifest.dart';
 import 'package:fl_clash/core/desktop/model.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/core/method.dart';
@@ -113,6 +115,22 @@ class _RecordingCoreHandler extends CoreHandlerInterface {
       CoreMethod.changeProxy => {'message': '', 'changed': true},
       CoreMethod.compileRuleSet => {'behavior': 'ipcidr', 'format': 'text'},
       CoreMethod.getConnectionCount => 3,
+      CoreMethod.getCoreCapabilities => requiredWindowsCoreCapabilities.toList(),
+      CoreMethod.getCoreIdentity => {
+        'version': 'v1.19.34-z.3',
+        'engineRevision': 'd6f29e555e63906208d9b5cba098af802126ba24',
+        'hostRevision': '03c93c9adf1d847be367f1ecd1f3381d6bb25183',
+      },
+      CoreMethod.getEngineDiagnostics => {
+        'settings': {'closedFlowCapacity': 32, 'chainDiagnostics': true},
+        'closed': null,
+        'chains': null,
+      },
+      CoreMethod.setEngineDiagnostics => arguments,
+      CoreMethod.getChainHealth => {
+        'available': true, 'owners': <Object>[], 'jobs': <Object>[],
+      },
+      CoreMethod.setChainHealth => true,
       CoreMethod.validateFilters => ['', 'missing closing )'],
       CoreMethod.watchRoute => {'core-epoch': 1, 'route-version': 0},
       CoreMethod.checkRoutes => {
@@ -167,6 +185,35 @@ class _EmptyConfigCoreHandler extends _RecordingCoreHandler {
 }
 
 void main() {
+  test('Dart and Go method names remain identical', () async {
+    final source = await File('core/protocol.go').readAsString();
+    final methods = RegExp(r'\b\w+Method\s+CoreMethod\s*=\s*"([^"]+)"')
+        .allMatches(source)
+        .map((match) => match.group(1)!)
+        .toSet();
+    expect(methods, CoreMethod.values.map((method) => method.name).toSet());
+  });
+
+  test('independent core identity and native diagnostic RPCs match the host', () async {
+    final handler = _RecordingCoreHandler();
+    final controller = CoreController.scoped(handler);
+    expect(await controller.getCoreCapabilities(), requiredWindowsCoreCapabilities);
+    expect((await controller.getCoreIdentity())?['version'], 'v1.19.34-z.3');
+    final diagnostics = await controller.getEngineDiagnostics();
+    expect(diagnostics['settings'], {'closedFlowCapacity': 32, 'chainDiagnostics': true});
+    await controller.setEngineDiagnostics(closedFlowCapacity: 32, chainDiagnostics: true);
+    expect(handler.calls[CoreMethod.setEngineDiagnostics], {
+      'closedFlowCapacity': 32, 'chainDiagnostics': true,
+    });
+    expect((await controller.getChainHealth())['available'], isTrue);
+    await controller.setChainHealth(
+      name: 'node', group: 'dialer', identity: '42', enabled: true,
+    );
+    expect(handler.calls[CoreMethod.setChainHealth], {
+      'name': 'node', 'group': 'dialer', 'identity': '42', 'enabled': true,
+    });
+  });
+
   test('native DNS stages survive JSON and copyWith, old messages omit them', () {
     final legacy = DnsQuery.fromJson({
       'domain': 'example.test', 'type': 'A', 'time': '2026-01-01T00:00:00Z',
