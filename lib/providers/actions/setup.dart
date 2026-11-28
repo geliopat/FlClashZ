@@ -52,6 +52,7 @@ class SetupAction extends _$SetupAction {
   var _lastPushDuration = Duration.zero;
   var _pendingForceApply = false;
   var _pushes = 0;
+  var _coreGeneration = 0;
   var _tunMissed = false;
   var _configRequests = 0;
   var _setupAfterInit = false;
@@ -80,6 +81,15 @@ class SetupAction extends _$SetupAction {
   @override
   void build() {
     ref.onDispose(_stopRuntimeTicker);
+    ref.listen(coreStatusProvider, (before, after) {
+      if (before == after || !system.isWindows) return;
+      _coreGeneration++;
+      // A different core process cannot inherit an acknowledged apply.
+      _appliedInputs = null;
+      _appliedHostCandidates = const {};
+      globalState.lastConfigMd5 = null;
+      globalState.lastConfigCounts = null;
+    });
     ref.listen(appVisibleProvider, (_, _) => _syncRuntimeTicker());
     ref.listen(
       appSettingProvider.select((state) => state.showTrayTitle),
@@ -1158,6 +1168,11 @@ class SetupAction extends _$SetupAction {
       }
       return _SetupTaskResult.completed;
     }
+    // Z3 rejects invalid Windows profiles without replacing native routes.
+    // Keep the last acknowledged display metadata until a definite answer.
+    final previousCounts = globalState.lastConfigCounts;
+    final previousHosts = _appliedHostCandidates;
+    final coreGeneration = _coreGeneration;
     // Until the push succeeds do not report the new profile as applied.
     _appliedInputs = null;
     if (system.isWindows) {
@@ -1224,7 +1239,18 @@ class SetupAction extends _$SetupAction {
               _pushes++;
             }
             if (message.isNotEmpty) {
-              globalState.lastConfigCounts = configCountsOf(const {});
+              if (system.isWindows) {
+                // An explicit rejection (unlike a lost IPC response) proves
+                // the old config remains in the same native process.
+                if (coreGeneration == _coreGeneration) {
+                  globalState.lastConfigCounts = previousCounts;
+                  _appliedHostCandidates = previousHosts;
+                }
+              } else {
+                globalState.lastConfigCounts = configCountsOf(const {});
+              }
+              // Do not restore the old digest or input equality: a retry
+              // must submit the current settings again.
               await globalState.safeRun(() => onUpdated?.call());
               throw MessageException(message);
             }

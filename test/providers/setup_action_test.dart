@@ -2280,7 +2280,7 @@ void main() {
       when(() => core.getProxies()).thenAnswer((_) async => coreProxies);
       when(() => core.setupConfig(any())).thenAnswer((_) async {
         if (rejecting) {
-          coreProxies = fallbackProxies;
+          if (!Platform.isWindows) coreProxies = fallbackProxies;
           return 'invalid hosts';
         }
         coreProxies = profileProxies;
@@ -2320,7 +2320,7 @@ void main() {
       rejecting = true;
       setHosts({'example.com': 'not-an-address'});
       expect(await setupAction.applyProfile(), isFalse);
-      expect(shownGroups(), isEmpty);
+      expect(shownGroups(), Platform.isWindows ? ['Proxy'] : isEmpty);
 
       rejecting = false;
       setHosts(originalHosts);
@@ -2393,7 +2393,11 @@ void main() {
       when(() => core.setupConfig(any())).thenAnswer((_) async => 'rejected');
       digest = 'third';
       expect(await setupAction.applyProfile(), isFalse);
-      expect(globalState.lastConfigCounts, (groups: 0, proxies: 0, rules: 0));
+      expect(globalState.lastConfigCounts, Platform.isWindows
+          ? (groups: 2, proxies: 3, rules: 6)
+          : (groups: 0, proxies: 0, rules: 0));
+      expect(globalState.lastConfigMd5, isNull);
+      expect(await setupAction.inputsApplied(), isFalse);
     });
 
     test(
