@@ -290,57 +290,6 @@ abstract class _$SetupAction extends $Notifier<void> {
   }
 }
 
-@ProviderFor(BackupAction)
-final backupActionProvider = BackupActionProvider._();
-
-final class BackupActionProvider extends $NotifierProvider<BackupAction, void> {
-  BackupActionProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'backupActionProvider',
-        isAutoDispose: false,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$backupActionHash();
-
-  @$internal
-  @override
-  BackupAction create() => BackupAction();
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(void value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<void>(value),
-    );
-  }
-}
-
-String _$backupActionHash() => r'f2ea15d55bb2f46d36bc79a54854f8a91572b3c8';
-
-abstract class _$BackupAction extends $Notifier<void> {
-  void build();
-  @$mustCallSuper
-  @override
-  WhenComplete runBuild() {
-    final ref = this.ref as $Ref<void, void>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<void, void>,
-              void,
-              Object?,
-              Object?
-            >;
-    return element.handleCreate(ref, build);
-  }
-}
-
 @ProviderFor(CoreAction)
 final coreActionProvider = CoreActionProvider._();
 

@@ -39,7 +39,6 @@ part 'actions/managed.dart';
 part 'actions/profile_headers.dart';
 part 'actions/profile_settings.dart';
 part 'actions/setup.dart';
-part 'actions/backup.dart';
 part 'actions/core.dart';
 part 'actions/system.dart';
 part 'actions/store.dart';

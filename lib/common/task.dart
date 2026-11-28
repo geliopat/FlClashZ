@@ -670,7 +670,7 @@ Future<MigrationData> migrateLegacyConfig({
       continue;
     }
     final newId = idMap.updateCacheValue(rawScript['id'], () => snowflake.id);
-    final path = BackupEntries.resolve(targetPath, BackupEntries.script(newId));
+    final path = join(targetPath, 'scripts', '$newId.js');
     final file = File(path);
     await file.safeWriteAsString(content);
     scripts.add(
@@ -695,7 +695,7 @@ Future<MigrationData> migrateLegacyConfig({
   final List<Profile> profiles = [];
   for (final rawProfile in rawProfiles) {
     final rawId = rawProfile['id'] as String?;
-    // The id names the profile's file in the backup.
+    // The id names the profile's file in the old data directory.
     if (rawId == null || !_isPlainFileName(rawId)) {
       continue;
     }
@@ -748,12 +748,9 @@ Future<MigrationData> migrateLegacyConfig({
     rawProfile['type'] = rawUrl is String && rawUrl.isNotEmpty ? 'url' : 'file';
 
     final sourceFile = File(
-      BackupEntries.resolve(sourcePath, BackupEntries.profile(rawId)),
+      join(sourcePath, profilesDirectoryName, '$rawId.yaml'),
     );
-    final targetFilePath = BackupEntries.resolve(
-      targetPath,
-      BackupEntries.profile(profileId),
-    );
+    final targetFilePath = join(targetPath, profilesDirectoryName, '$profileId.yaml');
     if (await sourceFile.exists()) {
       await sourceFile.safeCopy(targetFilePath);
     }

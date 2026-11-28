@@ -64,6 +64,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Zashboard'), findsNothing);
+    expect(find.text('Backup and restore'), findsNothing);
 
     container
         .read(patchClashConfigProvider.notifier)
