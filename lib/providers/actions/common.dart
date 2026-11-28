@@ -8,6 +8,7 @@ class CommonAction extends _$CommonAction {
   CoreController get _core => ref.read(coreHandlerProvider);
   Future<void>? _trafficUpdate;
   bool _trayOperationInProgress = false;
+  Future<bool>? _coreUpdate;
 
   @override
   void build() {}
@@ -203,23 +204,109 @@ class CommonAction extends _$CommonAction {
 
   Future<bool> autoCheckUpdate() async {
     if (!ref.read(appSettingProvider).autoCheckUpdate) return false;
-    final Map<String, dynamic>? res;
+    var offered = false;
     try {
-      res = await checkForUpdate();
+      final res = await checkForUpdate();
+      if (ref.mounted && res != null &&
+          (res['_required'] == true ||
+              res['tag_name'] != ref.read(appSettingProvider).hiddenUpdate)) {
+        await checkUpdateResultHandle(data: res);
+        offered = true;
+      }
     } catch (error) {
       commonPrint.log(
         'checkForUpdate failed: ${compactError(error)}',
         logLevel: LogLevel.warning,
       );
-      return false;
     }
-    if (res == null ||
-        res['_required'] != true &&
-            res['tag_name'] == ref.read(appSettingProvider).hiddenUpdate) {
-      return false;
+    if (!ref.mounted || ref.read(systemActionProvider.notifier).isExiting) {
+      return offered;
     }
-    await checkUpdateResultHandle(data: res);
-    return true;
+    // Same automatic update entry point and preference, no separate timer.
+    final coreOffered = await checkCoreUpdate();
+    return offered || coreOffered;
+  }
+
+  bool get _canUpdateCore => ref.mounted && system.isWindows &&
+      !safeModeBuild && !ref.read(safeModeProvider) &&
+      ref.read(initProvider) &&
+      ref.read(coreStatusProvider) == CoreStatus.connected &&
+      !ref.read(systemActionProvider.notifier).isExiting;
+
+  Future<bool> checkCoreUpdate({bool isUser = false}) {
+    if (!_canUpdateCore) return Future.value(false);
+    return _coreUpdate ??= _checkCoreUpdate(isUser: isUser).whenComplete(() {
+      _coreUpdate = null;
+    });
+  }
+
+  Future<bool> _checkCoreUpdate({required bool isUser}) async {
+    final ru = currentAppLocalizations.localeName.startsWith('ru');
+    String tr(String russian, String english) => ru ? russian : english;
+    final title = tr('Обновление ядра', 'Core update');
+    final updater = CoreReleaseUpdater(
+      downloader: UpdateDownloader(
+        root: () async => Directory(join(await appPath.homeDirPath, 'core-update-downloads')),
+      ),
+      helper: helperClient,
+    );
+    PreparedCoreRelease? prepared;
+    try {
+      final offer = await updater.check();
+      final journal = await coreReleaseSelection.read();
+      if (!_canUpdateCore) return false;
+      final raw = coreVersionDefine.isNotEmpty ? coreVersionDefine : bundledMihomoVersion;
+      final bundled = raw.startsWith('v') ? raw : 'v$raw';
+      final minimum = CoreReleaseVersion.parse('$bundled-z.1');
+      final version = offer.manifest.version;
+      if (version.compareTo(CoreReleaseVersion.parse(minimumIndependentCoreVersion)) < 0 ||
+          version.compareTo(minimum) < 0 ||
+          (journal.current != null && version.compareTo(journal.current!.version) <= 0)) {
+        if (isUser) await dialogs.showAlert(
+          title: title,
+          message: TextSpan(text: tr('Обновлений ядра нет', 'No core updates')),
+        );
+        return false;
+      }
+      final approved = await dialogs.showMessage(
+        title: title,
+        message: TextSpan(text: tr(
+          'Доступна версия ${version.value}. Установить и перезапустить ядро?',
+          'Version ${version.value} is available. Install and restart the core?',
+        )),
+        confirmText: tr('Обновить', 'Update'),
+      );
+      if (approved != true || !_canUpdateCore) return true;
+      await globalState.loadingRun(() async {
+        prepared = await updater.downloadOffer(offer);
+        if (!_canUpdateCore) return false;
+        final manifest = await updater.stage(prepared!);
+        if (!_canUpdateCore) return false;
+        final ok = await ref.read(coreActionProvider.notifier).activateCoreRelease(manifest);
+        if (ref.mounted) {
+          dialogs.showNotifier(ok
+              ? tr('Ядро обновлено: ${version.value}', 'Core updated: ${version.value}')
+              : tr('Обновление ядра не применено', 'Core update not applied'));
+        }
+        return ok;
+      }, title: title, tag: LoadingTag.checkUpdate);
+      return true;
+    } catch (error) {
+      commonPrint.log('Core update: ${compactError(error)}', logLevel: LogLevel.warning);
+      if (isUser && ref.mounted) {
+        await dialogs.showAlert(title: title, message: TextSpan(text: tr(
+          'Ошибка обновления ядра: ${compactError(error)}',
+          'Core update failed: ${compactError(error)}',
+        )));
+      }
+      return false;
+    } finally {
+      try {
+        await prepared?.dispose();
+      } catch (error) {
+        commonPrint.log('Core update cleanup: ${compactError(error)}', logLevel: LogLevel.warning);
+      }
+    }
   }
 
   TextSpan _releaseSpan(BuildContext context, String? body) {

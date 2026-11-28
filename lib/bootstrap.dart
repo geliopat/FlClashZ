@@ -161,6 +161,7 @@ class Bootstrap {
     }
     await _initApp();
     globalState.isAttach = true;
+    if (_container.read(initProvider)) unawaited(_checkUpdate());
   }
 
   ProviderContainer get _container => globalState.container;
@@ -185,7 +186,6 @@ class Bootstrap {
 
   Future<void> _initApp() async {
     unawaited(_container.read(systemActionProvider.notifier).updateTray());
-    unawaited(_checkUpdate());
     // A menu bar app waits in the status item for a click.
     if (!_container.read(appSettingProvider).silentLaunch &&
         !(window?.isMenuBarMode ?? false)) {
