@@ -128,6 +128,18 @@ class _TonalButtonGroupState extends State<TonalButtonGroup>
           ? row
           : _HoverMarkScope(mark: mark, child: mark.build(context, row)),
     );
+    final appearance = MaterialAppearanceTheme.of(context)
+        ?.pane(AppearanceSurface.button);
+    if (appearance != null) {
+      return ElasticPress(
+        child: LocalMaterialPane(
+          appearance: appearance,
+          color: context.raisedSurfaceLevel.colorOf(colorScheme),
+          shape: AppShape.full,
+          child: buttons,
+        ),
+      );
+    }
     if (GooSurface.of(context)) {
       return ElasticPress(child: GooPane(child: buttons));
     }
@@ -377,25 +389,33 @@ class TonalButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final glyph = this.glyph;
     final label = Text(this.label);
+    final color = context.raisedSurfaceLevel.colorOf(context.colorScheme);
+    final appearance = MaterialAppearanceTheme.of(context)
+        ?.pane(AppearanceSurface.button);
+    final content = TonalButtonTheme(
+      grouped: true,
+      size: size,
+      child: glyph == null
+          ? FilledButton(onPressed: onPressed, child: label)
+          : FilledButton.icon(
+              onPressed: onPressed,
+              icon: GlyphIcon(glyph, fill: 1),
+              label: label,
+            ),
+    );
     return ElasticPress(
       enabled: onPressed != null,
-      child: DecoratedBox(
-        decoration: ShapeDecoration(
-          color: context.raisedSurfaceLevel.colorOf(context.colorScheme),
-          shape: AppShape.full,
-        ),
-        child: TonalButtonTheme(
-          grouped: true,
-          size: size,
-          child: glyph == null
-              ? FilledButton(onPressed: onPressed, child: label)
-              : FilledButton.icon(
-                  onPressed: onPressed,
-                  icon: GlyphIcon(glyph, fill: 1),
-                  label: label,
-                ),
-        ),
-      ),
+      child: appearance == null
+          ? DecoratedBox(
+              decoration: ShapeDecoration(color: color, shape: AppShape.full),
+              child: content,
+            )
+          : LocalMaterialPane(
+              appearance: appearance,
+              color: color,
+              shape: AppShape.full,
+              child: content,
+            ),
     );
   }
 }

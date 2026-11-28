@@ -1,3 +1,4 @@
+import 'package:fl_clash/ui/button.dart';
 import 'package:fl_clash/ui/material_appearance.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -39,6 +40,43 @@ void main() {
     expect(estimate, isNotNull);
     expect(estimate!.a, 1);
   });
+  testWidgets('button material applies to a group and a labelled action',
+      (tester) async {
+    final appearance = decodeMaterialAppearance({
+      'button': {'effect': 'mica', 'opacity': .45},
+    });
+    var taps = 0;
+    Widget build(MaterialAppearance settings) => MaterialApp(
+      theme: ThemeData(extensions: [MaterialAppearanceTheme(settings)]),
+      home: Scaffold(
+        body: Column(
+          children: [
+            TonalButtonGroup(
+              children: [
+                IconButton(onPressed: () => taps++, icon: const Icon(Icons.add)),
+                IconButton(onPressed: () {}, icon: const Icon(Icons.remove)),
+              ],
+            ),
+            TonalButton(label: 'Action', onPressed: () => taps++),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpWidget(build(appearance));
+    expect(find.byType(LocalMaterialPane), findsNWidgets(2));
+    for (final pane in tester.widgetList<LocalMaterialPane>(
+      find.byType(LocalMaterialPane),
+    )) {
+      expect(pane.appearance, appearance.button);
+    }
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.text('Action'));
+    expect(taps, 2);
+
+    await tester.pumpWidget(build(defaultMaterialAppearance));
+    expect(find.byType(LocalMaterialPane), findsNothing);
+  });
+
   test('opaque stays opaque and acrylic respects local opacity', () {
     final scheme = ColorScheme.fromSeed(seedColor: Colors.blue);
     final opaque = paneColor(scheme.surface, scheme, defaultPaneAppearance);
