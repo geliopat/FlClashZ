@@ -132,13 +132,14 @@ class DnsView extends OverrideView<DnsOverrideKey, Dns> {
         ),
       );
 
-  DnsView.profile(int profileId, {super.key})
+  DnsView.profile(int profileId, {super.key, bool preserveEmpty = false})
     : super(
         spec: _ProfileDnsOverrideSpec(
           ProfileOverrideTarget(
             profileId,
             get: _profileDns,
             set: _setProfileDns,
+            preserveEmpty: preserveEmpty,
             issues: customProfileIssuesProvider(
               profileId,
             ).select((state) => state.dns),
@@ -336,7 +337,7 @@ class _ProfileDnsOverrideSpec extends _DnsOverrideSpec
 
   @override
   String overrideYaml(Dns model, Set<DnsOverrideKey> keys) =>
-      model.overrideYaml(keys);
+      model.overrideYaml(keys, keepEmpty: !target.emptyCancels);
 
   @override
   _DnsState applyOverrideYaml(Dns model, String content) {

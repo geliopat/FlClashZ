@@ -128,6 +128,31 @@ void main() {
     });
   });
 
+  test('empty DNS override serialization preserves optional lists only', () {
+    const dns = Dns(nameserver: [], defaultNameserver: [], fallback: [],
+        directNameserver: []);
+    const keys = {
+      DnsOverrideKey.nameserver,
+      DnsOverrideKey.defaultNameserver,
+      DnsOverrideKey.fallback,
+      DnsOverrideKey.directNameserver,
+    };
+    expect(dns.overrideJson(keys, keepEmpty: true),
+        {'fallback': [], 'direct-nameserver': []});
+    final decoded = dns.applyOverrideYaml(dns.overrideYaml(keys, keepEmpty: true));
+    expect(decoded.keys, {DnsOverrideKey.fallback, DnsOverrideKey.directNameserver});
+    expect(decoded.dns.fallback, isEmpty);
+  });
+
+  test('DNS editor rejects metadata-only hosts enhanced-mode', () {
+    expect(() => defaultDns.applyOverrideYaml('enhanced-mode: hosts'),
+        throwsFormatException);
+    for (final mode in ['normal', 'fake-ip', 'redir-host']) {
+      expect(defaultDns.applyOverrideYaml('enhanced-mode: $mode').keys,
+          {DnsOverrideKey.enhancedMode});
+    }
+  });
+
   group('mergeDnsOverride', () {
     test('keeps the fallback filter keys the override does not name', () {
       final merged = mergeDnsOverride(

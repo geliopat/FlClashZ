@@ -1361,7 +1361,7 @@ extension DnsOverrideExt on Dns {
     return json;
   }
 
-  /// [keepEmpty] writes emptied keys, but the core refuses an empty nameserver.
+  /// [keepEmpty] writes emptied keys, except required resolver lists.
   Map<String, Object?> overrideJson(
     Set<DnsOverrideKey> keys, {
     bool keepEmpty = false,
@@ -1370,12 +1370,12 @@ extension DnsOverrideExt on Dns {
     DnsOverrideKey.values,
     keys,
     keepEmpty: keepEmpty
-        ? keys.difference({DnsOverrideKey.nameserver})
+        ? keys.difference({DnsOverrideKey.nameserver, DnsOverrideKey.defaultNameserver})
         : const <DnsOverrideKey>{},
   );
 
-  String overrideYaml(Set<DnsOverrideKey> keys) =>
-      yaml.encode(overrideJson(keys));
+  String overrideYaml(Set<DnsOverrideKey> keys, {bool keepEmpty = false}) =>
+      yaml.encode(overrideJson(keys, keepEmpty: keepEmpty));
 
   ({Dns dns, Set<DnsOverrideKey> keys}) applyOverrideYaml(String content) {
     final json = _json;
@@ -1391,7 +1391,12 @@ extension DnsOverrideExt on Dns {
     for (final policy in _policyKeys) {
       json[policy.path] = _joinPolicyServers(json[policy.path]);
     }
-    return (dns: Dns.fromJson(json), keys: keys);
+    final dns = Dns.fromJson(json);
+    if (keys.contains(DnsOverrideKey.enhancedMode) &&
+        dns.enhancedMode == DnsMode.hosts) {
+      throw const FormatException('hosts is DNS metadata, not an enhanced-mode');
+    }
+    return (dns: dns, keys: keys);
   }
 }
 
