@@ -148,6 +148,35 @@ void main() {
       expect(container.read(totalTrafficProvider), before);
     });
 
+    test('clears the displayed series and total when statistics scope changes',
+        () async {
+      final container = buildContainer();
+      final settings = container.read(appSettingProvider.notifier);
+      settings.update((state) => state.copyWith(onlyStatisticsProxy: true));
+      when(() => core.getTraffic(true)).thenAnswer((_) async =>
+          const Traffic(up: 10, down: 20));
+      when(() => core.getTotalTraffic(true)).thenAnswer((_) async =>
+          const Traffic(up: 100, down: 200));
+      when(() => core.getTotalTraffic(false)).thenAnswer((_) async =>
+          const Traffic(up: 300, down: 400));
+      when(() => core.getTraffic(false)).thenAnswer((_) async =>
+          const Traffic(up: 30, down: 40));
+      final action = container.read(commonActionProvider.notifier);
+      await action.updateTraffic();
+      expect(container.read(trafficsProvider).list.last,
+          const Traffic(up: 10, down: 20));
+
+      settings.update((state) => state.copyWith(onlyStatisticsProxy: false));
+      expect(container.read(trafficsProvider).list, isEmpty);
+      expect(container.read(totalTrafficProvider), const Traffic());
+
+      await action.updateTraffic();
+      expect(container.read(trafficsProvider).list,
+          [const Traffic(up: 30, down: 40)]);
+      expect(container.read(totalTrafficProvider),
+          const Traffic(up: 300, down: 400));
+    });
+
     test('ignores a delayed sample from a previous statistics scope', () async {
       final container = buildContainer();
       final settings = container.read(appSettingProvider.notifier);

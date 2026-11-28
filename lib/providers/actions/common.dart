@@ -19,7 +19,12 @@ class CommonAction extends _$CommonAction {
     });
     ref.listen(appSettingProvider.select((state) => state.onlyStatisticsProxy),
         (previous, next) {
-      if (previous != next) _trafficScopeGeneration++;
+      if (previous == next) return;
+      _trafficScopeGeneration++;
+      // The chart and running total belong to one scope only. Persisted
+      // history is independent and continues to retain both scopes.
+      ref.read(trafficsProvider.notifier).clear();
+      ref.read(totalTrafficProvider.notifier).value = const Traffic();
     });
   }
 
