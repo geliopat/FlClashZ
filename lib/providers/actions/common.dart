@@ -289,7 +289,7 @@ class CommonAction extends _$CommonAction {
               : tr('Обновление ядра не применено', 'Core update not applied'));
         }
         return ok;
-      }, title: title, tag: LoadingTag.checkUpdate);
+      }, title: title, tag: null);
       return true;
     } catch (error) {
       commonPrint.log('Core update: ${compactError(error)}', logLevel: LogLevel.warning);
