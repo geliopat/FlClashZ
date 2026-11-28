@@ -148,6 +148,49 @@ void main() {
       expect(container.read(totalTrafficProvider), before);
     });
 
+    test('ignores a delayed sample from a previous statistics scope', () async {
+      final container = buildContainer();
+      final settings = container.read(appSettingProvider.notifier);
+      settings.update((state) => state.copyWith(onlyStatisticsProxy: true));
+      final pending = Completer<Traffic>();
+      when(() => core.getTraffic(true)).thenAnswer((_) => pending.future);
+      when(() => core.getTotalTraffic(true)).thenAnswer((_) => pending.future);
+      when(() => core.getTotalTraffic(false)).thenAnswer((_) async =>
+          const Traffic(up: 200, down: 400));
+      final action = container.read(commonActionProvider.notifier);
+      final old = action.updateTraffic();
+      settings.update((state) => state.copyWith(onlyStatisticsProxy: false));
+      pending.complete(const Traffic(up: 100, down: 200));
+      await old;
+      expect(container.read(trafficsProvider).list, isEmpty);
+      expect(container.read(totalTrafficProvider), const Traffic());
+
+      when(() => core.getTraffic(false)).thenAnswer((_) async =>
+          const Traffic(up: 2, down: 4));
+      await action.updateTraffic();
+      expect(container.read(trafficsProvider).list.last,
+          const Traffic(up: 2, down: 4));
+      expect(container.read(totalTrafficProvider),
+          const Traffic(up: 200, down: 400));
+    });
+
+    test('rejects a sample interrupted by a core lifecycle transition', () async {
+      final container = buildContainer();
+      final status = container.read(coreStatusProvider.notifier);
+      status.value = CoreStatus.connected;
+      final pending = Completer<Traffic>();
+      when(() => core.getTraffic(any())).thenAnswer((_) => pending.future);
+      when(() => core.getTotalTraffic(any())).thenAnswer((_) => pending.future);
+      final action = container.read(commonActionProvider.notifier);
+      final old = action.updateTraffic();
+      status.value = CoreStatus.disconnected;
+      status.value = CoreStatus.connected;
+      pending.complete(const Traffic(up: 100, down: 200));
+      await old;
+      expect(container.read(trafficsProvider).list, isEmpty);
+      expect(container.read(totalTrafficProvider), const Traffic());
+    });
+
     test(
       'coalesces concurrent callers on the same in-flight traffic sample',
       () async {
