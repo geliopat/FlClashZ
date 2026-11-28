@@ -17,6 +17,27 @@ void main() {
     expect(RecoveryJournal.parseLine('unstructured line'), isNull);
   });
 
+  test('component tabs retain all matching attempts and outcomes', () {
+    RecoveryEvent event(String component, RecoveryOutcome outcome) => RecoveryEvent(
+      id: component, time: DateTime.utc(2026), component: component,
+      action: 'restart', outcome: outcome,
+    );
+    final events = [
+      event('Mihomo', RecoveryOutcome.started),
+      event('mihomo', RecoveryOutcome.failed),
+      event('Helper', RecoveryOutcome.succeeded),
+      event('Zapret', RecoveryOutcome.interrupted),
+      event('Other', RecoveryOutcome.skipped),
+    ];
+    expect(filterRecoveryEvents(events, RecoveryComponentFilter.all), events);
+    expect(filterRecoveryEvents(events, RecoveryComponentFilter.mihomo),
+        events.take(2).toList());
+    expect(filterRecoveryEvents(events, RecoveryComponentFilter.helper),
+        [events[2]]);
+    expect(filterRecoveryEvents(events, RecoveryComponentFilter.zapret),
+        [events[3]]);
+  });
+
   test('native watchdog records preserve outcome and operation id', () {
     final raw = [
       '{"timestampMs":123,"component":"Zapret","recovery":{"id":"native-1","action":"watchdog","outcome":"started"}}',

@@ -9,6 +9,17 @@ import 'package:path/path.dart' as p;
 
 enum RecoveryOutcome { started, succeeded, failed, interrupted, skipped }
 
+enum RecoveryComponentFilter { all, mihomo, helper, zapret }
+
+List<RecoveryEvent> filterRecoveryEvents(
+  Iterable<RecoveryEvent> events, RecoveryComponentFilter filter,
+) => [
+  for (final event in events)
+    if (filter == RecoveryComponentFilter.all ||
+        event.component.toLowerCase() == filter.name)
+      event,
+];
+
 class RecoveryEvent {
   const RecoveryEvent({
     required this.id,

@@ -18,10 +18,19 @@ class RecoveryHistoryView extends StatefulWidget {
 }
 
 class _RecoveryHistoryViewState extends State<RecoveryHistoryView> {
-  late Future<({List<RecoveryEvent> events, bool helperUnavailable})> _events = _load();
+  RecoveryComponentFilter _filter = RecoveryComponentFilter.all;
+  late Future<({List<RecoveryEvent> events, bool helperUnavailable, bool localUnavailable})>
+      _events = _load();
 
-  Future<({List<RecoveryEvent> events, bool helperUnavailable})> _load() async {
-    final local = await recoveryJournal.readRecent();
+  Future<({List<RecoveryEvent> events, bool helperUnavailable, bool localUnavailable})>
+      _load() async {
+    List<RecoveryEvent> local = const [];
+    var localUnavailable = false;
+    try {
+      local = await recoveryJournal.readRecent();
+    } catch (_) {
+      localUnavailable = true;
+    }
     var unavailable = false;
     List<RecoveryEvent> native = const [];
     try {
@@ -31,7 +40,7 @@ class _RecoveryHistoryViewState extends State<RecoveryHistoryView> {
     }
     final merged = [...local, ...native]..sort((a, b) => b.time.compareTo(a.time));
     return (events: merged.take(RecoveryJournal.maxEntries).toList(growable: false),
-      helperUnavailable: unavailable);
+      helperUnavailable: unavailable, localUnavailable: localUnavailable);
   }
 
   String _outcome(RecoveryOutcome value, bool ru) => switch (value) {
@@ -55,10 +64,13 @@ class _RecoveryHistoryViewState extends State<RecoveryHistoryView> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final ru = Localizations.localeOf(context).languageCode == 'ru';
-    return FutureBuilder<({List<RecoveryEvent> events, bool helperUnavailable})>(
+    final filters = RecoveryComponentFilter.values;
+    return FutureBuilder<({List<RecoveryEvent> events, bool helperUnavailable, bool localUnavailable})>(
       future: _events,
       builder: (context, snapshot) {
-        final events = snapshot.data?.events ?? const <RecoveryEvent>[];
+        final events = filterRecoveryEvents(
+          snapshot.data?.events ?? const <RecoveryEvent>[], _filter,
+        );
         return ListView.separated(
           padding: EdgeInsets.fromLTRB(16, context.sectionsTopPadding, 16, 16 + context.bottomInset),
           itemCount: 1 + events.length,
@@ -66,12 +78,27 @@ class _RecoveryHistoryViewState extends State<RecoveryHistoryView> {
           itemBuilder: (context, index) {
             if (index == 0) {
               return generateSection(items: [
+                DefaultTabController(
+                  length: filters.length,
+                  initialIndex: _filter.index,
+                  child: TabBar(
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    onTap: (index) => setState(() => _filter = filters[index]),
+                    tabs: [
+                      Tab(text: ru ? 'Все' : 'All'),
+                      const Tab(text: 'Mihomo'),
+                      const Tab(text: 'Helper'),
+                      const Tab(text: 'Zapret'),
+                    ],
+                  ),
+                ),
                 ListItem(title: Text(l.update), leading: const GlyphIcon(AppGlyphs.refresh),
                   onTap: snapshot.connectionState == ConnectionState.waiting ? null :
                     () => setState(() => _events = _load())),
                 ListItem(title: Text(l.openLogsFolder), leading: const GlyphIcon(AppGlyphs.openExternal),
                   onTap: () async => system.openDirectory(await recoveryJournal.directoryPath)),
-                ListItem(title: Text(ru ? 'Копировать записи' : 'Copy entries'),
+                ListItem(title: Text(ru ? 'Копировать выбранные записи' : 'Copy filtered entries'),
                   onTap: events.isEmpty ? null : () async => Clipboard.setData(ClipboardData(
                     text: events.map((e) => '${e.time.toLocal()} [${e.component}] ${_action(e.action, ru)}: ${_outcome(e.outcome, ru)}').join('\n'),
                   ))),
@@ -80,7 +107,11 @@ class _RecoveryHistoryViewState extends State<RecoveryHistoryView> {
                   widget: const ZapretLogsView(recoveryOnly: true),
                 ),
                 if (snapshot.data?.helperUnavailable == true)
-                  ListItem(title: Text(l.forkJournalUnavailable)),
+                  ListItem(title: Text(l.forkJournalUnavailable),
+                    subtitle: const Text('Helper / Zapret')),
+                if (snapshot.data?.localUnavailable == true)
+                  ListItem(title: Text(l.forkJournalUnavailable),
+                    subtitle: Text(ru ? 'Локальная история' : 'Local history')),
                 if (snapshot.connectionState == ConnectionState.waiting)
                   const Center(child: CommonCircleLoading.page())
                 else if (snapshot.hasError)
