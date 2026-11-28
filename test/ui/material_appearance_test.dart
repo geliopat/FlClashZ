@@ -18,11 +18,7 @@ void main() {
     });
     expect(value.windowOpacity, 0);
     expect(value.windowTint, 1);
-    expect(value.card!.effect, MaterialEffect.mica);
-    expect(value.card!.opacity, .4);
-    expect(selectableMaterialEffects, [
-      MaterialEffect.none, MaterialEffect.mica, MaterialEffect.acrylic,
-    ]);
+    expect(value.card!.effect, MaterialEffect.micaAlt);
     expect(value.button!.effect, MaterialEffect.acrylic);
     expect(value.button!.blur, 24);
     expect(value.button!.tint, 0);

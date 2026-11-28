@@ -9,13 +9,14 @@ import 'package:window/window.dart';
 const windowMaterials = [
   WindowEffect.none,
   WindowEffect.mica,
+  WindowEffect.micaAlt,
   WindowEffect.acrylic,
 ];
 
 WindowEffect parseWindowMaterial(String? name) =>
     switch (name) {
       'mica' => WindowEffect.mica,
-      'micaAlt' => WindowEffect.mica,
+      'micaAlt' => WindowEffect.micaAlt,
       'acrylic' => WindowEffect.acrylic,
       _ => WindowEffect.none,
     };
