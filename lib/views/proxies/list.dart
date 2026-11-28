@@ -5,6 +5,7 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
+import 'package:fl_clash/views/chain_health.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -669,6 +670,9 @@ class ListHeader extends ConsumerWidget {
             _GroupActions(
               isExpand: isExpand,
               isDelayTesting: isDelayTesting,
+              onChainHealth: system.isWindows && group.type == GroupType.LoadBalance
+                  ? () => BaseNavigator.push<void>(context, ChainHealthView(groupName: groupName))
+                  : null,
               onDelayTest: () {
                 ref
                     .read(proxiesActionProvider.notifier)
@@ -845,12 +849,14 @@ class _GroupActions extends StatelessWidget {
     required this.isDelayTesting,
     required this.onDelayTest,
     required this.onToggle,
+    this.onChainHealth,
   });
 
   final bool isExpand;
   final bool isDelayTesting;
   final VoidCallback onDelayTest;
   final VoidCallback onToggle;
+  final VoidCallback? onChainHealth;
 
   @override
   Widget build(BuildContext context) {
@@ -858,6 +864,13 @@ class _GroupActions extends StatelessWidget {
       size: TonalButtonSize.compact,
       child: Row(
         children: [
+          if (onChainHealth != null)
+            IconButton(
+              tooltip: Localizations.localeOf(context).languageCode == 'ru'
+                  ? 'Проверка каскада' : 'Chain Health',
+              onPressed: onChainHealth,
+              icon: const GlyphIcon(AppGlyphs.cpu),
+            ),
           IconButton(
             tooltip: context.appLocalizations.delayTest,
             onPressed: isDelayTesting ? null : onDelayTest,

@@ -8,7 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 class ChainHealthView extends ConsumerStatefulWidget {
-  const ChainHealthView({super.key});
+  const ChainHealthView({super.key, this.groupName, this.ownerName})
+      : assert(groupName == null || ownerName == null);
+
+  final String? groupName;
+  final String? ownerName;
   @override
   ConsumerState<ChainHealthView> createState() => _ChainHealthViewState();
 }
@@ -23,7 +27,7 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
       ref.read(coreStatusProvider) == CoreStatus.connected;
 
   bool get _visible => mounted && ModalRoute.of(context)?.isCurrent != false &&
-      TickerMode.valuesOf(context).enabled;
+      TickerMode.valuesOf(context).enabled && ref.read(appVisibleProvider);
   bool _available = false;
   String? _error;
   List<Map<String, dynamic>> _owners = const [];
@@ -43,10 +47,10 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
         _available = false; _owners = const []; _jobs = const [];
       });
       if (next == CoreStatus.connected) {
-        Future.microtask(() { if (mounted) _refresh(); });
+        Future.microtask(() { if (_visible) _refresh(); });
       }
     });
-    Future.microtask(() { if (mounted && ref.read(coreStatusProvider) == CoreStatus.connected) _refresh(); });
+    Future.microtask(() { if (_visible && ref.read(coreStatusProvider) == CoreStatus.connected) _refresh(); });
     // Poll only the open, visible page; no background network probe is
     // initiated by the UI. Chain health itself remains owned by the core.
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
@@ -145,14 +149,18 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
   Widget build(BuildContext context) {
     final connected = ref.watch(coreStatusProvider) == CoreStatus.connected;
     final enabled = connected && _available && !_busy;
+    final owners = _owners.where((owner) =>
+        (widget.groupName == null || owner['group'] == widget.groupName) &&
+        (widget.ownerName == null || owner['name'] == widget.ownerName)).toList();
+    final scope = widget.groupName ?? widget.ownerName;
     return CommonScaffold(
-      title: 'Chain Health',
+      title: scope == null ? 'Chain Health' : 'Chain Health · $scope',
       body: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16).copyWith(
           top: context.sectionsTopPadding,
           bottom: 16 + context.bottomInset,
         ),
-        itemCount: _owners.length + 1,
+        itemCount: owners.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
             return generateSection(items: [
@@ -165,15 +173,19 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
                 trailing: _busy ? const CommonCircleLoading() : const GlyphIcon(AppGlyphs.sync),
                 onTap: connected && !_busy ? () => _refresh() : null,
               ),
+              if (_available && owners.isEmpty)
+                ListItem(title: Text(_tr('Нет подходящих каскадов', 'No eligible cascades')),
+                    subtitle: Text(_tr('Ядро не сообщило о поддерживаемых цепочках для этого выбора.',
+                        'The core reported no supported chains for this selection.'))) ,
             ]);
           }
-          final owner = _owners[index - 1];
+          final owner = owners[index - 1];
           final job = _jobFor(owner['group'] as String);
           final active = (job?['owner'] as Map?)?['identity'] == owner['identity'];
           return ListItem(
             title: Text('${owner['name']}'),
             subtitle: Text('${owner['group']}${(owner['provider'] as String).isEmpty ? '' : ' · ${owner['provider']}'}'
-                '${active && job != null ? '\n${_results(job)}' : ''}'),
+                '${active && job != null ? '\n${_results(job)}' : job != null ? '\n${_tr('Занято другим выходом', 'Another owner is active')}' : ''}'),
             trailing: Switch(
               value: active,
               onChanged: enabled && (active || job == null)

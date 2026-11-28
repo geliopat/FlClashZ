@@ -60,7 +60,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
           glyph: AppGlyphs.latency,
           label: ru ? 'Проверка каскадов (Chain Health)' : 'Chain Health',
           onPressed: () => BaseNavigator.push<void>(
-            context, const ChainHealthView(),
+            context, ChainHealthView(groupName: _isTab ? group : null),
           ),
         ),
         CommonPopupMenuItem(

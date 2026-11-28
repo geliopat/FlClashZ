@@ -599,7 +599,17 @@ class _EditProxyGroupViewState extends ConsumerState<EditProxyGroupView> {
       PagedSheetRoute(
         builder: (context) => SelectionSheet<LoadBalanceStrategy>(
           title: context.appLocalizations.strategy,
-          sections: const [SelectionSection(items: LoadBalanceStrategy.values)],
+          sections: [
+            SelectionSection(
+              items: LoadBalanceStrategy.values,
+              subtitleBuilder: (context, item) =>
+                  item == LoadBalanceStrategy.adaptiveBalance
+                      ? Localizations.localeOf(context).languageCode == 'ru'
+                          ? 'Учитывает задержку, нестабильность и ошибки недавних проверок; распределяет между близкими по оценке узлами.'
+                          : 'Uses recent latency, jitter and failures; balances across similarly scored nodes.'
+                      : null,
+            ),
+          ],
           labelBuilder: (item) => item.value,
           selectedOf: (ref) => ref.watch(
             proxyGroupProvider.select(
