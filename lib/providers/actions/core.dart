@@ -304,7 +304,9 @@ class CoreAction extends _$CoreAction {
         final identity = await _core.getCoreIdentity();
         if (identity?['version'] != manifest.version.value ||
             identity?['engineRevision'] != manifest.engineRevision ||
-            identity?['hostRevision'] != manifest.hostRevision) return false;
+            identity?['hostRevision'] != manifest.hostRevision) {
+          return false;
+        }
         final capabilities = await _core.getCoreCapabilities();
         if (!capabilities.containsAll(requiredWindowsCoreCapabilities)) return false;
       }

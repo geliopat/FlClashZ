@@ -245,7 +245,11 @@ class SetupAction extends _$SetupAction {
       forceZapret: running,
       onZapretStopError: (error) => stopError = error,
     );
-    if (stopError != null) throw stopError!;
+    if (stopError case final error?) {
+      if (error is Exception) throw error;
+      if (error is Error) throw error;
+      throw StateError(error.toString());
+    }
     return success;
   }
 
@@ -1234,7 +1238,11 @@ class SetupAction extends _$SetupAction {
             rethrow;
           } finally {
             if (stagedBase != null) {
-              try { await stagedBase.delete(recursive: true); } on FileSystemException {}
+              try {
+                await stagedBase.delete(recursive: true);
+              } on FileSystemException {
+                // Best-effort cleanup must not mask the profile apply result.
+              }
             }
             if (zapret != null && transition != null) {
               try {

@@ -100,7 +100,9 @@ class SpeedTestSettingsController extends Notifier<SpeedTestSettings> {
 
   Future<void> set(SpeedTestSettings settings) async {
     if (!validTestEndpoint(settings.downloadUrl) ||
-        !validTestEndpoint(settings.uploadUrl)) return;
+        !validTestEndpoint(settings.uploadUrl)) {
+      return;
+    }
     _revision++;
     state = settings.copyWith(service: vpnSpeedService(settings.service));
     final latest = state;
@@ -202,7 +204,9 @@ class SpeedTestController extends Notifier<SpeedTestState> {
 
   Future<void> _run(Set<String> targets) async {
     if (targets.isEmpty || state.busy ||
-        ref.read(coreStatusProvider) != CoreStatus.connected) return;
+        ref.read(coreStatusProvider) != CoreStatus.connected) {
+      return;
+    }
     final settings = ref.read(speedTestSettingsProvider);
     final generation = ++_generation;
     final pending = {...targets};

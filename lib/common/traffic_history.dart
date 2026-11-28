@@ -70,7 +70,9 @@ class RollingTrafficWindow {
       final value = entry.value;
       if (key == null || key <= now - minutes || key > now ||
           value is! List || value.length != 4 ||
-          value.any((element) => element is! int || element < 0)) continue;
+          value.any((element) => element is! int || element < 0)) {
+        continue;
+      }
       _buckets[key] = List<int>.from(value);
     }
   }

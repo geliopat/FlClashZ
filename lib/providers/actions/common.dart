@@ -47,7 +47,9 @@ class CommonAction extends _$CommonAction {
   /// Use exactly the dashboard's coordinated restart, not app relaunch.
   Future<void> restartFromTray() async {
     if (_trayOperationInProgress || !ref.read(initProvider) ||
-        ref.read(coreStatusProvider) == CoreStatus.connecting) return;
+        ref.read(coreStatusProvider) == CoreStatus.connecting) {
+      return;
+    }
     final restartAll = !ref.read(safeModeProvider);
     if (restartAll) {
       final zapret = ref.read(zapretControllerProvider);
@@ -264,10 +266,12 @@ class CommonAction extends _$CommonAction {
       if (version.compareTo(CoreReleaseVersion.parse(minimumIndependentCoreVersion)) < 0 ||
           version.compareTo(minimum) < 0 ||
           (journal.current != null && version.compareTo(journal.current!.version) <= 0)) {
-        if (isUser) await dialogs.showAlert(
-          title: title,
-          message: TextSpan(text: tr('Обновлений ядра нет', 'No core updates')),
-        );
+        if (isUser) {
+          await dialogs.showAlert(
+            title: title,
+            message: TextSpan(text: tr('Обновлений ядра нет', 'No core updates')),
+          );
+        }
         return false;
       }
       final approved = await dialogs.showMessage(

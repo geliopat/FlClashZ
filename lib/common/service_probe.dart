@@ -204,7 +204,9 @@ IpInfo? parseFlexibleIpBody(String body) {
       return null;
     }
     if (value is! Map || value['success'] == false ||
-        value['error'] == true || value['status'] == 'fail') return null;
+        value['error'] == true || value['status'] == 'fail') {
+      return null;
+    }
     final address = value['ip'] ?? value['query'] ?? value['ipAddress'];
     if (address is! String) return null;
     ip = address;

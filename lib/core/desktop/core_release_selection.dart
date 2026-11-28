@@ -48,8 +48,8 @@ final class CoreReleaseRef {
 
   Map<String, String> toJson() => {
     'hash': hash, 'version': version.value,
-    if (engineRevision != null) 'engineRevision': engineRevision!,
-    if (hostRevision != null) 'hostRevision': hostRevision!,
+    'engineRevision': ?engineRevision,
+    'hostRevision': ?hostRevision,
   };
 }
 
