@@ -67,6 +67,22 @@ class _DiagnosticsViewState extends ConsumerState<DiagnosticsView> {
         final version = await core.getCoreVersion();
         return '$ok · $version';
       });
+      await check('Core identity', () async {
+        if (ref.read(coreStatusProvider) != CoreStatus.connected) return unavailable;
+        final identity = await ref.read(coreHandlerProvider).getCoreIdentity();
+        if (identity == null) return unavailable;
+        final version = identity['version'];
+        final engine = identity['engineRevision'];
+        final host = identity['hostRevision'];
+        if (version is! String || engine is! String || host is! String ||
+            version.isEmpty || engine.isEmpty || host.isEmpty) return unavailable;
+        return '$version · Engine: $engine · Host: $host';
+      });
+      await check('Core capabilities', () async {
+        if (ref.read(coreStatusProvider) != CoreStatus.connected) return unavailable;
+        final capabilities = await ref.read(coreHandlerProvider).getCoreCapabilities();
+        return capabilities.isEmpty ? unavailable : (capabilities.toList()..sort()).join(', ');
+      });
       await check('Helper / IPC', () async =>
         await helperClient.readiness(timeout: const Duration(seconds: 3), verifyHelperBinary: true) == HelperReadiness.ready ? ok : unavailable);
       await check('Zapret', () async {

@@ -14,6 +14,20 @@ void main() {
     expect(raw['tun'], {'auto-route': true, 'icmp-timeout': 0, 'loopback-address': []});
     expect(raw['profile'], {'store-selected': false, 'store-fake-ip': false});
   });
+  test('Z3 inbound MPTCP inherits explicit false and can be overridden', () {
+    final raw = restoreExplicitMihomoSettings(
+      {'inbound-mptcp': true}, {'inbound-mptcp': false},
+    );
+    expect(additionalSourceOf(raw, 'inbound-mptcp'),
+        (present: true, value: false));
+    applyAdditionalSettings(raw, 'inbound-mptcp: true');
+    expect(raw['inbound-mptcp'], isTrue);
+    expect(() => decodeAdditionalSettings('inbound-mptcp: 1'),
+        throwsFormatException);
+    expect(additionalMihomoKeys.containsKey('global-client-fingerprint'),
+        isFalse);
+  });
+
   test('source recovery retains explicit values and ordered DNS policies', () {
     final policy = <String, Object>{
       'geosite:private': 'https://dns.example/dns-query#DIRECT',

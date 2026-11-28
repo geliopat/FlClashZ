@@ -2,12 +2,16 @@ import 'package:fl_clash/common/yaml.dart';
 
 enum MihomoValueKind { boolean, integer, string, strings }
 
-/// Remaining editable global/section fields of pinned Mihomo 1.19.34.
+/// Remaining editable fields of the released FlClashZ Core v1.19.34-z.3.
+/// Engine d6f29e555e63906208d9b5cba098af802126ba24;
+/// source-settings contract: host 03c93c9adf1d847be367f1ecd1f3381d6bb25183.
 /// Routing definitions, credentials, internal file descriptors, unsafe
 /// controller transports, OS-specific and non-public knobs are not an
 /// arbitrary override surface. Existing typed editors own their fields.
 const additionalMihomoKeys = <String, MihomoValueKind>{
   'inbound-tfo': MihomoValueKind.boolean,
+  // Accepted by the core; actual MPTCP availability depends on the OS.
+  'inbound-mptcp': MihomoValueKind.boolean,
   'lan-allowed-ips': MihomoValueKind.strings,
   'lan-disallowed-ips': MihomoValueKind.strings,
   'bind-address': MihomoValueKind.string,

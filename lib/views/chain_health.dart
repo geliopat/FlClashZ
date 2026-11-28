@@ -50,7 +50,7 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
     // Poll only the open, visible page; no background network probe is
     // initiated by the UI. Chain health itself remains owned by the core.
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (_visible && !_busy && true &&
+      if (_visible && !_busy &&
           ref.read(coreStatusProvider) == CoreStatus.connected) {
         _refresh();
       }
@@ -129,7 +129,15 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
           : result['Healthy'] == true
               ? _tr('Доступен', 'Healthy')
               : _tr('Ошибка', 'Failed');
-      return '${result['Member']}: $status';
+      // Go time.Duration is serialized in nanoseconds. Unverified results
+      // are never displayed as successful measurements.
+      final delay = result['Delay'];
+      final latency = result['Verified'] == true && delay is num && delay > 0
+          ? ' · ${(delay / 1000000).toStringAsFixed(1)} ms'
+          : '';
+      final error = result['Error'];
+      final detail = error is String && error.isNotEmpty ? ' · $error' : '';
+      return '${result['Member']}: $status$latency$detail';
     }).join('\n');
   }
 
