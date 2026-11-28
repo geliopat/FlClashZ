@@ -241,9 +241,23 @@ Map<String, Object?> sectionOverrideValues(
   final raw = config[section];
   if (raw is! Map) return const {};
   final result = <String, Object?>{};
+  // Z3 only reads legacy sniffing/port-whitelist when sniff is empty.
+  // Present the effective protocols in the regular typed editor as well.
+  final sniff = raw['sniff'];
+  final legacy = raw['sniffing'];
+  final legacyPorts = raw['port-whitelist'];
+  final legacySniff = section == 'sniffer' &&
+      (sniff is! Map || sniff.isEmpty) && legacy is List
+      ? <String, Object?>{
+          for (final name in legacy.whereType<String>())
+            name.toUpperCase(): {
+              if (legacyPorts is List) 'ports': legacyPorts.map((port) => port.toString()).toList(),
+            },
+        }
+      : null;
   for (final key in keys) {
     final parent = key.parent;
-    final node = parent == null ? raw : raw[parent];
+    final node = parent == null ? raw : parent == 'sniff' && legacySniff != null ? legacySniff : raw[parent];
     if (node is! Map) continue;
     final field = parent == null ? key.path : key.field;
     if (node.containsKey(field)) {

@@ -32,6 +32,23 @@ const _tuned = PatchClashConfig(
 );
 
 void main() {
+  test('Z3 legacy sniffer protocols appear in the typed inheritance editor', () {
+    final legacy = yamlSectionSourcesOf(1, {
+      'sniffer': {'sniffing': ['tls', 'HTTP'], 'port-whitelist': [443, '80-81']},
+    });
+    expect(legacy.sniffer['sniff.TLS'], {'ports': ['443', '80-81']});
+    expect(legacy.sniffer['sniff.HTTP'], {'ports': ['443', '80-81']});
+    final modern = yamlSectionSourcesOf(1, {
+      'sniffer': {
+        'sniffing': ['TLS'],
+        'port-whitelist': [443],
+        'sniff': {'http': {'ports': ['80']}},
+      },
+    });
+    expect(modern.sniffer['sniff.HTTP'], {'ports': ['80']});
+    expect(modern.sniffer.containsKey('sniff.TLS'), isFalse);
+  });
+
   test('explicit resource URLs outrank previously owned values and use canonical keys', () {
     final patch = const PatchClashConfig(geoXUrl: {
       ...defaultGeoXUrl, GeoResource.GEOIP: 'https://old.example/geo.dat',

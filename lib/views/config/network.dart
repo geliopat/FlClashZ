@@ -10,6 +10,8 @@ import 'package:fl_clash/providers/action.dart';
 import 'package:fl_clash/providers/state.dart';
 import 'package:fl_clash/views/config/override.dart';
 import 'package:fl_clash/views/config/tun.dart';
+import 'package:fl_clash/views/config/additional_mihomo_settings.dart';
+import 'package:fl_clash/providers/database.dart' show currentProfileIdProvider;
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -454,6 +456,7 @@ class TunSection extends ConsumerWidget {
     final picked = spec.listedKeys(ref, watch: true);
     final sourcePending = spec.sourcePending(ref, watch: true);
     final sources = isWindows ? ref.watch(yamlSectionSourcesProvider) : null;
+    final activeId = isWindows ? ref.watch(currentProfileIdProvider) : null;
     final rawTun = sources?.explicit['tun'];
     final ru = Localizations.localeOf(context).languageCode == 'ru';
     String protectedCaption(String field, String effective) {
@@ -481,6 +484,15 @@ class TunSection extends ConsumerWidget {
         ],
         for (final key in listed)
           OverrideEntry(key: ValueKey(key), spec: spec, overrideKey: key),
+        if (activeId != null)
+          ListItem.open(
+            key: const ValueKey('additional-tun-settings'),
+            title: Text(ru ? 'Дополнительные параметры TUN' : 'Additional TUN settings'),
+            widget: AdditionalMihomoSettingsView(
+              profileId: activeId,
+              section: AdditionalMihomoSection.tun,
+            ),
+          ),
         if (!sourcePending && listed.length < spec.values.length)
           FormRow(
             key: const ValueKey(#add),
