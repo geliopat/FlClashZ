@@ -699,12 +699,12 @@ void main() {
   testWidgets('integrated caption leaves the entire window to the page', (
     tester,
   ) async {
-    await tester.pumpWidget(TestApp(
+    await tester.pumpWidget(const TestApp(
       child: WindowHeaderLayout(
         height: 32,
         integrated: true,
-        header: const SizedBox(height: 32, key: Key('integrated-caption')),
-        child: const ColoredBox(key: _contentKey, color: Color(0xFF00FF00)),
+        header: SizedBox(height: 32, key: Key('integrated-caption')),
+        child: ColoredBox(key: _contentKey, color: Color(0xFF00FF00)),
       ),
     ));
     expect(tester.getTopLeft(find.byKey(_contentKey)), Offset.zero);

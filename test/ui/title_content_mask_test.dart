@@ -23,11 +23,11 @@ void main() {
     final boundary = GlobalKey();
     await tester.pumpWidget(MaterialApp(home: Center(child: RepaintBoundary(
       key: boundary,
-      child: SizedBox(width: 250, height: 120, child: Stack(
+      child: const SizedBox(width: 250, height: 120, child: Stack(
         fit: StackFit.expand,
         children: [
-          const ColoredBox(color: Color(0xFF0000FF)),
-          const TitleContentMask(
+          ColoredBox(color: Color(0xFF0000FF)),
+          TitleContentMask(
             title: Rect.fromLTWH(50, 18, 71, 28),
             child: ColoredBox(color: Color(0xFFFF0000)),
           ),

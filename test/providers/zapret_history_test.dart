@@ -20,7 +20,7 @@ void main() {
 
   test('linked Zapret startup defaults to enabled without overriding user choice', () async {
     final preferences = await SharedPreferences.getInstance();
-    expect(ZapretState().startWithMihomo, isTrue);
+    expect(const ZapretState().startWithMihomo, isTrue);
     expect(ZapretController.readStartWithMihomo(preferences), isTrue);
     await preferences.setBool('zapret.startWithMihomo', false);
     expect(ZapretController.readStartWithMihomo(preferences), isFalse);

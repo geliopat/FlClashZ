@@ -237,7 +237,7 @@ void main() {
   testManagedWidgets('proxy options restore the provider from the row context menu', (
     tester,
   ) async {
-    final styled = Profile(
+    final styled = const Profile(
       id: 5,
       label: 'Provider',
       type: ProfileType.url,

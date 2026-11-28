@@ -154,7 +154,7 @@ void main() {
     await store.setValue('String', 'flutter.config', '{"profile":42}');
     await store.setValue('Bool', 'flutter.zapret.watchdog', false);
     await store.setValue('String', 'other.unknown', 'keep');
-    final damaged = '{"flutter.config":';
+    const damaged = '{"flutter.config":';
     await File(path).writeAsString(damaged, flush: true);
     final reopened = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
     expect(await reopened.getAll(), {

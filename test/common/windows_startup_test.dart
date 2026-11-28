@@ -5,9 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('startup registration is interactive and limited, never SYSTEM', () {
-    final script = WindowsStartupTask.script;
+    const script = WindowsStartupTask.script;
     expect(script, contains('-LogonType Interactive -RunLevel Limited'));
-    expect(script, contains("PT10S"));
+    expect(script, contains('PT10S'));
     expect(script, contains('-RestartCount 3'));
     expect(script, contains('-MultipleInstances IgnoreNew'));
     expect(script, contains('Task ownership mismatch'));

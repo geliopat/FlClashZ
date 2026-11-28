@@ -197,7 +197,7 @@ void main() {
 
     test('compatible saves preserve unknown model fields and explicit removals', () async {
       await preferences.setVersion(1);
-      final old = Config(themeProps: defaultThemeProps).copyWith.patchClashConfig(
+      final old = const Config(themeProps: defaultThemeProps).copyWith.patchClashConfig(
         hosts: {'remove.example': '127.0.0.1'},
       );
       final raw = jsonDecode(jsonEncode(old)) as Map<String, Object?>;

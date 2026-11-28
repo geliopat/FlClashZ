@@ -77,7 +77,7 @@ void main() {
     expect(ByteData.sublistView(png).getUint32(20), 512);
     final tray = [
       for (var state = 1; state <= 4; state++)
-        checkIco('assets/images/tray/windows/status_${state}.ico', trayIcoSizes),
+        checkIco('assets/images/tray/windows/status_$state.ico', trayIcoSizes),
     ];
     for (var i = 0; i < tray.length; i++) {
       for (var j = i + 1; j < tray.length; j++) {

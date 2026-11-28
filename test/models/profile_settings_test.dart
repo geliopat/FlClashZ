@@ -33,7 +33,7 @@ const _tuned = PatchClashConfig(
 
 void main() {
   test('explicit resource URLs outrank previously owned values and use canonical keys', () {
-    final patch = PatchClashConfig(geoXUrl: {
+    final patch = const PatchClashConfig(geoXUrl: {
       ...defaultGeoXUrl, GeoResource.GEOIP: 'https://old.example/geo.dat',
     });
     final next = withProfileGeoUrls(patch, {
