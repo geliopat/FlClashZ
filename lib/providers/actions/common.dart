@@ -7,11 +7,21 @@ final updatePlatformResolverProvider = Provider<Future<UpdatePlatform> Function(
 class CommonAction extends _$CommonAction {
   CoreController get _core => ref.read(coreHandlerProvider);
   Future<void>? _trafficUpdate;
+  int _trafficCoreGeneration = 0;
+  int _trafficScopeGeneration = 0;
   bool _trayOperationInProgress = false;
   Future<bool>? _coreUpdate;
 
   @override
-  void build() {}
+  void build() {
+    ref.listen(coreStatusProvider, (previous, next) {
+      if (previous != next) _trafficCoreGeneration++;
+    });
+    ref.listen(appSettingProvider.select((state) => state.onlyStatisticsProxy),
+        (previous, next) {
+      if (previous != next) _trafficScopeGeneration++;
+    });
+  }
 
   void toggleRunning() {
     final running = !ref.read(isStartProvider);
@@ -111,6 +121,11 @@ class CommonAction extends _$CommonAction {
         ? ref.read(trafficHistoryProvider)
         : null;
     final generation = history?.generation;
+    final coreGeneration = _trafficCoreGeneration;
+    final scopeGeneration = _trafficScopeGeneration;
+    bool current() => ref.mounted &&
+        coreGeneration == _trafficCoreGeneration &&
+        generation == history?.generation;
     if (history?.resetting == true) return;
     try {
       final onlyStatisticsProxy = ref.read(
@@ -124,15 +139,17 @@ class CommonAction extends _$CommonAction {
         else
           Future<Traffic?>.value(null),
       ]);
-      if (!ref.mounted || generation != history?.generation) return;
+      if (!current()) return;
       if (history != null) {
         await history.record(
           generation: generation!,
           all: onlyStatisticsProxy ? alternateTotal : totalTraffic,
           proxy: onlyStatisticsProxy ? totalTraffic : alternateTotal,
         );
-        if (!ref.mounted || generation != history.generation) return;
+        if (!current()) return;
       }
+      // History retains both scopes; the visible series must not mix them.
+      if (scopeGeneration != _trafficScopeGeneration) return;
       if (traffic != null) {
         ref.read(trafficsProvider.notifier).addTraffic(traffic);
       }

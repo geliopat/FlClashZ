@@ -32,23 +32,26 @@ final connectionStatisticsProvider =
   final stream = StreamController<ConnectionStatisticsSample?>();
   Timer? timer;
   var disposed = false;
+  var paused = false;
+  var polling = false;
   var emitted = false;
   ConnectionSnapshot? previous;
 
   void publish(ConnectionSnapshot? sample) {
-    if (disposed || (emitted && previous == null && sample == null)) return;
+    if (disposed || paused || (emitted && previous == null && sample == null)) return;
     emitted = true;
     previous = sample;
     stream.add(sample == null ? null : ConnectionStatisticsSample(sample, DateTime.now()));
   }
 
   Future<void> poll() async {
-    if (disposed) return;
+    if (disposed || paused || polling) return;
+    polling = true;
     try {
       final sample = await core.getConnectionSnapshot();
       publish(sample);
     } catch (error) {
-      if (!disposed) {
+      if (!disposed && !paused) {
         if (!emitted || previous != null) {
           commonPrint.log(
             'Connection statistics unavailable: $error',
@@ -59,12 +62,25 @@ final connectionStatisticsProvider =
       }
     } finally {
       // A slow response applies backpressure; no overlapping periodic read.
-      if (!disposed) {
-        timer = Timer(const Duration(seconds: 1), () => unawaited(poll()));
+      polling = false;
+      if (!disposed && !paused) {
+        timer = Timer(const Duration(seconds: 1), () {
+          timer = null;
+          unawaited(poll());
+        });
       }
     }
   }
 
+  ref.onCancel(() {
+    paused = true;
+    timer?.cancel();
+    timer = null;
+  });
+  ref.onResume(() {
+    paused = false;
+    unawaited(poll());
+  });
   ref.onDispose(() {
     disposed = true;
     timer?.cancel();

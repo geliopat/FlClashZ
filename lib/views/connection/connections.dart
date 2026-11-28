@@ -88,13 +88,14 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView>
     _subscription ??= ref.listenManual(
       connectionStatisticsProvider,
       (_, next) {
+        final epoch = ++_sampleEpoch;
+        if (next.isLoading) return;
         final data = next.asData;
         if (data == null && !next.hasError) return;
-        final epoch = ++_sampleEpoch;
         scheduleMicrotask(() {
           if (!mounted || epoch != _sampleEpoch) return;
-          final sample = data?.value;
           final connected = ref.read(coreStatusProvider) == CoreStatus.connected;
+          final sample = connected && ref.read(appVisibleProvider) ? data?.value : null;
           final unavailable = sample == null && connected;
           if (_unavailable != unavailable) {
             setState(() => _unavailable = unavailable);
