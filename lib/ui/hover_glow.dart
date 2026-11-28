@@ -43,3 +43,42 @@ class HoverGlowTheme extends ThemeExtension<HoverGlowTheme> {
   @override
   int get hashCode => intensity.hashCode;
 }
+
+
+/// Shared text/icon treatment, independent of focus rings and surface fill.
+Widget hoverGlowForeground(BuildContext context, Widget child, {
+  required bool hovered,
+}) {
+  final shadows = HoverGlowTheme.of(context).shadows(
+    Theme.of(context).colorScheme.primary, hovered: hovered,
+  );
+  return IconTheme.merge(
+    data: IconThemeData(shadows: shadows),
+    child: DefaultTextStyle.merge(
+      style: TextStyle(shadows: shadows), child: child,
+    ),
+  );
+}
+
+/// For interactive surfaces without a ButtonStyle state builder.
+class HoverGlowRegion extends StatefulWidget {
+  const HoverGlowRegion({super.key, required this.child, this.enabled = true});
+  final Widget child;
+  final bool enabled;
+
+  @override
+  State<HoverGlowRegion> createState() => _HoverGlowRegionState();
+}
+
+class _HoverGlowRegionState extends State<HoverGlowRegion> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    opaque: false,
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: hoverGlowForeground(context, widget.child,
+      hovered: widget.enabled && _hovered),
+  );
+}

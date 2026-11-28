@@ -1,4 +1,5 @@
 import 'package:fl_clash/ui/material_appearance.dart';
+import 'package:fl_clash/ui/hover_glow.dart';
 import 'dart:math' as math;
 
 import 'package:fl_clash/ui/context.dart';
@@ -252,6 +253,7 @@ class CommonCard extends StatelessWidget {
       _buildBackgroundColor(context, level),
       shape,
     );
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
     return ValueListenableBuilder(
       valueListenable: FocusMovedByKey.instance,
       builder: (context, movedByKey, content) => FilledButton(
@@ -269,7 +271,16 @@ class CommonCard extends StatelessWidget {
               elevation: 0,
             ).copyWith(
               backgroundColor: WidgetStatePropertyAll(glass.fill),
-              backgroundBuilder: glass.builder,
+              splashFactory: windows ? NoSplash.splashFactory : null,
+              overlayColor: windows ? const WidgetStatePropertyAll(Colors.transparent) : null,
+              backgroundBuilder: !windows ? glass.builder : (context, states, child) {
+                final foreground = hoverGlowForeground(context,
+                  child ?? const SizedBox.shrink(),
+                  hovered: states.contains(WidgetState.hovered) &&
+                      !states.contains(WidgetState.disabled),
+                );
+                return glass.builder?.call(context, states, foreground) ?? foreground;
+              },
               side: WidgetStateProperty.resolveWith(
                 (states) => _buildBorderSide(
                   context,

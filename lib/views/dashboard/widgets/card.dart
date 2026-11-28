@@ -1,4 +1,6 @@
 import 'package:fl_clash/ui/material_appearance.dart';
+import 'package:fl_clash/ui/hover_glow.dart';
+import 'package:fl_clash/ui/button.dart' show TonalButtonTheme, TonalButtonSize;
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter, lerpDouble;
 
@@ -59,6 +61,7 @@ class DashboardCard extends StatelessWidget {
       child: child,
     );
     final appearance = MaterialAppearanceTheme.of(context)?.pane(AppearanceSurface.card);
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
     final material = Material(
           type: MaterialType.transparency,
           child: onTap == null
@@ -68,10 +71,10 @@ class DashboardCard extends StatelessWidget {
                   child: InkWell(
                     mouseCursor: clickableCursor,
                     customBorder: shape,
-                    splashFactory: appearance == null ? null : NoSplash.splashFactory,
-                    overlayColor: appearance == null ? null : const WidgetStatePropertyAll(Colors.transparent),
+                    splashFactory: windows || appearance != null ? NoSplash.splashFactory : null,
+                    overlayColor: windows || appearance != null ? const WidgetStatePropertyAll(Colors.transparent) : null,
                     onTap: onTap,
-                    child: content,
+                    child: windows ? HoverGlowRegion(child: content) : content,
                   ),
                 ),
         );
@@ -85,7 +88,7 @@ class DashboardCard extends StatelessWidget {
                 clipBehavior: clipBehavior,
                 color: DashboardColors.of(context).card,
                 radius: AppRadius.all(radius),
-                shadows: DashboardShadows.e1(context),
+                shadows: windows ? const [] : DashboardShadows.e1(context),
                 child: material,
               )
             : LocalMaterialPane(
@@ -528,6 +531,7 @@ class DashboardBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final shape = AppShape.all(radius);
     final content = Padding(padding: padding, child: child);
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
     return Container(
       decoration: ShapeDecoration(
         color: color ?? DashboardColors.of(context).tone,
@@ -545,8 +549,10 @@ class DashboardBlock extends StatelessWidget {
                   child: InkWell(
                     mouseCursor: clickableCursor,
                     customBorder: shape,
+                    splashFactory: windows ? NoSplash.splashFactory : null,
+                    overlayColor: windows ? const WidgetStatePropertyAll(Colors.transparent) : null,
                     onTap: onTap,
-                    child: content,
+                    child: windows ? HoverGlowRegion(child: content) : content,
                   ),
                 ),
               ),
@@ -937,26 +943,31 @@ class DashboardIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A 24 tall card header would otherwise squeeze the circle into a pill.
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
+    final material = MaterialAppearanceTheme.of(context)?.pane(AppearanceSurface.button);
+    final button = IconButton(
+      tooltip: tooltip,
+      padding: EdgeInsets.zero,
+      iconSize: iconSize,
+      style: IconButton.styleFrom(
+        minimumSize: const Size.square(size),
+        fixedSize: const Size.square(size),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: color ?? context.colorScheme.onSurfaceVariant,
+      ),
+      onPressed: onPressed,
+      icon: GlyphIcon(glyph, size: iconSize),
+    );
     return SizedBox(
       width: size,
       child: OverflowBox(
         fit: OverflowBoxFit.deferToChild,
         minHeight: size,
         maxHeight: size,
-        child: IconButton(
-          tooltip: tooltip,
-          padding: EdgeInsets.zero,
-          iconSize: iconSize,
-          style: IconButton.styleFrom(
-            minimumSize: const Size.square(size),
-            fixedSize: const Size.square(size),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: color ?? context.colorScheme.onSurfaceVariant,
-          ),
-          onPressed: onPressed,
-          icon: GlyphIcon(glyph, size: iconSize),
-        ),
+        child: windows
+            ? TonalButtonTheme(grouped: material == null,
+                size: TonalButtonSize.compact, child: button)
+            : button,
       ),
     );
   }

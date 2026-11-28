@@ -120,7 +120,9 @@ class _TonalButtonGroupState extends State<TonalButtonGroup>
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
     final row = Row(mainAxisSize: MainAxisSize.min, children: widget.children);
-    final mark = widget.children.length > 1 ? _mark ??= _HoverMark(this) : null;
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
+    final mark = !windows && widget.children.length > 1
+        ? _mark ??= _HoverMark(this) : null;
     final buttons = TonalButtonTheme(
       grouped: true,
       size: widget.size,
@@ -487,17 +489,10 @@ class TonalButtonTheme extends StatelessWidget {
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         backgroundColor: pane?.backgroundColor,
         backgroundBuilder: (context, states, child) {
-          final shadows = HoverGlowTheme.of(context).shadows(
-            colorScheme.primary,
+          final foreground = hoverGlowForeground(context,
+            child ?? const SizedBox.shrink(),
             hovered: states.contains(WidgetState.hovered) &&
                 !states.contains(WidgetState.disabled),
-          );
-          final foreground = IconTheme.merge(
-            data: IconThemeData(shadows: shadows),
-            child: DefaultTextStyle.merge(
-              style: TextStyle(shadows: shadows),
-              child: child!,
-            ),
           );
           final content = behind == null
               ? foreground

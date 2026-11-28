@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Windows shared card/button appearance: common cards and interactive dashboard cards/blocks use shared foreground HoverGlow without ink overlays; dashboard cards no longer paint legacy elevation shadows by default. Header icon buttons use the common tonal theme and explicit button material. Grouped toolbar buttons no longer paint the old iPad hover pill on Windows. Focus rings and functional selected/error states retained. Shared foreground hover regression added; physical Windows backdrop/contrast and remaining specialized controls pending.
+
 - Section navigation waits for the asynchronous CommonPopScope confirmation of the actual route rather than treating the initial Flutter veto as final. A cancelled or failed save stays in the current section; an accepted close continues the requested transition. Duplicate close requests share the pending answer and a late confirmation cannot pop a different route. Added widget regressions for accept/cancel and overlapping requests; execution pending.
 
 - Section lifecycle: DNS query view stops rendering updates while inactive or ticker-suspended, catches up from the unchanged ring on return, and resets its search/paused follow state on section re-entry. Diagnostics returns to its first tab without losing the timestamped report or cancelling running checks. Added hidden-DNS regression; Windows rendering and full section navigation tests pending.
