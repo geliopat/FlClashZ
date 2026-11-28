@@ -2,6 +2,8 @@ import 'package:fl_clash/ui/icons/icons.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
+import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart' show compute;
 
 import 'package:fl_clash/core/desktop/helper_client.dart';
@@ -31,6 +33,45 @@ bool isRecoveryJournalMessage(String message) {
 typedef _JournalEntry = ({HelperZapretLog log, String component});
 
 const journalViewLimit = 10000;
+
+/// Local Mihomo crashes are not in the native Helper archive.
+HelperZapretLog? parseLocalMihomoCrash(String line) {
+  final match = RegExp(r'^\[([^\]]+)\] \[([^\]]+)\] \[Mihomo\] (.*)$').firstMatch(line);
+  if (match == null) return null;
+  final time = DateTime.tryParse(match.group(1)!);
+  if (time == null) return null;
+  return HelperZapretLog(time, match.group(2)!.toLowerCase(), match.group(3)!);
+}
+
+Future<List<_JournalEntry>> _localMihomoCrashes() async {
+  await crashFileLogger.flush();
+  final files = await Directory(await crashFileLogger.directoryPath)
+      .list(followLinks: false)
+      .where((entry) => entry is File &&
+          RegExp(r'^Crashes_\d{4}-\d{2}-\d{2}(?:_\d+)?\.log$').hasMatch(p.basename(entry.path)))
+      .cast<File>().toList();
+  final dated = await Future.wait(files.map((file) async =>
+      (file: file, modified: await file.lastModified())));
+  dated.sort((a, b) => b.modified.compareTo(a.modified));
+  final result = <_JournalEntry>[];
+  for (final entry in dated) {
+    final tail = Queue<_JournalEntry>();
+    await for (final line in entry.file.openRead()
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .transform(const LineSplitter())) {
+      final log = parseLocalMihomoCrash(line);
+      if (log == null) continue;
+      tail.addLast((log: log, component: 'Mihomo'));
+      if (tail.length > journalViewLimit) tail.removeFirst();
+    }
+    result.addAll(tail.toList().reversed);
+    if (result.length >= journalViewLimit) break;
+  }
+  result.sort((a, b) => b.log.time.compareTo(a.log.time));
+  return result.take(journalViewLimit).toList(growable: false);
+}
+
+typedef _ArchiveResult = ({List<_JournalEntry> entries, List<String> unavailable});
 
 bool sameZapretLogs(List<HelperZapretLog> a, List<HelperZapretLog> b) {
   if (identical(a, b)) return true;
@@ -99,7 +140,7 @@ class _ZapretLogsViewState extends State<ZapretLogsView>
   String _filter = 'all';
   String? _error;
   List<HelperZapretLog> _logs = const [];
-  Future<List<_JournalEntry>>? _archive;
+  Future<_ArchiveResult>? _archive;
 
   @override
   Duration get pollInterval => _tab == 0
@@ -143,8 +184,33 @@ class _ZapretLogsViewState extends State<ZapretLogsView>
         .whenComplete(() => _readingArchive = false));
   }
 
-  Future<List<_JournalEntry>> _loadArchive() async =>
-      compute(_parseArchive, await helperClient.zapretLogArchive());
+  Future<_ArchiveResult> _loadArchive() async {
+    final entries = <_JournalEntry>[];
+    final unavailable = <String>[];
+    Future<void> read(String source, Future<List<_JournalEntry>> Function() load) async {
+      try {
+        entries.addAll(await load());
+      } catch (_) {
+        unavailable.add(source);
+      }
+    }
+    await Future.wait([
+      read('Helper / Zapret', () async =>
+          compute(_parseArchive, await helperClient.zapretLogArchive())),
+      if (widget.crashOnly) read('Mihomo', _localMihomoCrashes),
+    ]);
+    final relevant = widget.crashOnly
+        ? entries.where(_isCrashEntry).toList()
+        : entries;
+    relevant.sort((a, b) => b.log.time.compareTo(a.log.time));
+    return (entries: relevant.take(journalViewLimit).toList(growable: false),
+        unavailable: unavailable);
+  }
+
+  bool _isCrashEntry(_JournalEntry entry) =>
+      entry.component == 'Mihomo' || entry.log.level == 'error' ||
+      entry.log.message.toLowerCase().contains('watchdog') ||
+      entry.log.message.toLowerCase().contains('engine exited');
 
   Future<void> _clearLive() async {
     if (_clearing || _tab != 0) return;
@@ -163,9 +229,7 @@ class _ZapretLogsViewState extends State<ZapretLogsView>
 
   bool _matches(_JournalEntry entry) {
     final log = entry.log;
-    if (_tab == 1 && log.level != 'error' &&
-        !log.message.toLowerCase().contains('watchdog') &&
-        !log.message.toLowerCase().contains('engine exited')) {
+    if (_tab == 1 && !_isCrashEntry(entry)) {
       return false;
     }
     if (_tab == 3 && !isRecoveryJournalMessage(log.message)) return false;
@@ -265,7 +329,7 @@ class _ZapretLogsViewState extends State<ZapretLogsView>
 
   Widget _journal(BuildContext context) {
     final l = AppLocalizations.of(context);
-    return FutureBuilder<List<_JournalEntry>>(
+    return FutureBuilder<_ArchiveResult>(
       future: _archive,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done && !snapshot.hasData) {
@@ -283,7 +347,10 @@ class _ZapretLogsViewState extends State<ZapretLogsView>
             ],
           ));
         }
-        return _entriesView(context, snapshot.data ?? const []);
+        final data = snapshot.data;
+        final unavailable = data?.unavailable ?? const <String>[];
+        return _entriesView(context, data?.entries ?? const [],
+          error: unavailable.isEmpty ? null : '${l.forkJournalUnavailable}: ${unavailable.join(', ')}');
       },
     );
   }

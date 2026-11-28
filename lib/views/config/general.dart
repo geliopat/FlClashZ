@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
+import 'package:fl_clash/core/desktop/helper_client.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/form/form.dart';
 import 'package:fl_clash/l10n/l10n.dart';
@@ -321,6 +322,52 @@ class OpenLogsFolderItem extends StatelessWidget {
       onTap: _open,
     );
   }
+}
+
+class ExportZapretArchiveItem extends StatefulWidget {
+  const ExportZapretArchiveItem({super.key});
+
+  @override
+  State<ExportZapretArchiveItem> createState() => _ExportZapretArchiveItemState();
+}
+
+class _ExportZapretArchiveItemState extends State<ExportZapretArchiveItem> {
+  bool _busy = false;
+
+  Future<void> _export() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final archive = await helperClient.zapretLogArchive();
+      if (!mounted) return;
+      final directory = await Directory.systemTemp.createTemp('flclashz-journal-');
+      try {
+        final file = File('${directory.path}${Platform.pathSeparator}FlClashZ-helper-zapret.jsonl');
+        await file.writeAsString(archive, flush: true);
+        if (!mounted) return;
+        final saved = await picker.saveFileWithPath('FlClashZ-helper-zapret.jsonl', file.path);
+        if (saved != null && mounted) {
+          dialogs.showNotifier(context.appLocalizations.exportSuccess);
+        }
+      } finally {
+        await directory.delete(recursive: true);
+      }
+    } catch (_) {
+      if (mounted) dialogs.showNotifier(context.appLocalizations.forkReportSaveFailed,
+          level: MessageLevel.error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListItem(
+    leading: const GlyphIcon(AppGlyphs.export),
+    title: Text(Localizations.localeOf(context).languageCode == 'ru'
+        ? 'Экспорт архива Helper / Zapret' : 'Export Helper / Zapret archive'),
+    onTap: _busy ? null : _export,
+    trailing: _busy ? const CommonCircleLoading() : null,
+  );
 }
 
 class ShareLogsItem extends StatefulWidget {
@@ -742,6 +789,7 @@ class GeneralView extends ConsumerWidget {
                   title: Text(AppLocalizations.of(context).forkOpenZapretLogs),
                   onTap: () async => system.openDirectory(await zapretFileLogger.directoryPath),
                 ),
+                const ExportZapretArchiveItem(),
               ],
               footer: AppLocalizations.of(context).forkEngineDebugTip,
             ),

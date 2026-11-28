@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Journals: crash history merges local Mihomo crash records and the native Helper/Zapret archive, independently reports unreadable sources, and excludes duplicated local Zapret copies. Native archive export is available in Settings / Zapret logs (JSONL via save dialog); visible-entry copying remains in journal pages. Added local crash parser regression. The native archive remains bounded by its existing retention and IPC limits; UI and Windows picker validation pending.
+
 - Helper recovery: readiness deadline now includes local manifest access, HTTP and executable hashing; a timed-out local read cannot send a late ping. Registration preflight has a bounded six-second check, and only explicit none/success registration outcomes confirm readiness. Linked Zapret stop retains uncertainty across subsequent failed IPC checks until a stop is acknowledged after workers drain. Added manifest-deadline regression; runtime/service tests pending. UAC installation still waits for the elevated installer itself.
 
 - Zapret watchdog settings: validate Helper's exact boolean acknowledgment, block overlapping edits and launches during the change, prevent an older catalog read from overwriting the switch, and attempt compensation when persistence fails after native acknowledgment. A failed compensation leaves the last acknowledged runtime value with an error; a lost RPC response still cannot prove the native setting. Existing Helper watchdog policy (three attempts, five-second retry, reset after thirty seconds of stable process) unchanged. Added HTTP contract regression; execution pending.
