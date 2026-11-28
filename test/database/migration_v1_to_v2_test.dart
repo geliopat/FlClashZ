@@ -974,6 +974,86 @@ void main() {
     },
   );
 
+  test('rewound schema 1 preserves current profiles, rules and groups', () async {
+    raw.execute(
+      'INSERT INTO profiles (id, type, label, url, extend_type, '
+      'auto_update_duration_millis, auto_update, selected_map, unfold_set) '
+      "VALUES (3, 'custom', 'Mine', '', 'standard', 0, 0, '{}', '[]'), "
+      "(4, 'url', 'Future', '', 'future-extension', 0, 0, '{}', '[]')",
+    );
+    raw.execute(
+      'INSERT INTO proxy_groups (id, profile_id, name, type, definition) '
+      '''VALUES (1, 3, 'Proxy', 'select', '{"hidden":true}')''',
+    );
+    raw.execute(
+      'INSERT INTO rules (id, profile_id, rule_action, rule_target, "order") '
+      "VALUES (1, 3, 'MATCH', 'Proxy', 'a0'), (2, NULL, 'MATCH', 'DIRECT', 'a1')",
+    );
+    raw.execute('INSERT INTO disabled_rules (profile_id, rule_id) VALUES (3, 2)');
+    raw.execute('PRAGMA user_version = 1');
+
+    final database = await openAndMigrate();
+
+    expect(_userVersion(raw), 23);
+    expect((await database.proxyGroupsDao.query(3).get()).single.hidden, isTrue);
+    expect((await database.rulesDao.queryProfileRules(3).get()).single.ruleTarget, 'Proxy');
+    expect(raw.select('SELECT extend_type FROM profiles WHERE id = 4').single['extend_type'], 'future-extension');
+    expect(raw.select('SELECT rule_id FROM disabled_rules WHERE profile_id = 3').single['rule_id'], 2);
+    expect(raw.select('SELECT "order" FROM rules WHERE id = 1').single['order'], 'a0');
+  });
+
+  test('rewound provider migration preserves a newer column and its value', () async {
+    raw.execute('ALTER TABLE clash_providers ADD COLUMN future_option TEXT');
+    raw.execute(
+      'INSERT INTO clash_providers (id, kind, label, url, future_option) '
+      "VALUES (1, 'rule', 'Kept', '', 'keep-me')",
+    );
+    raw.execute('PRAGMA user_version = 7');
+
+    await openAndMigrate();
+
+    expect(_userVersion(raw), 23);
+    expect(raw.select('SELECT future_option FROM clash_providers').single['future_option'], 'keep-me');
+  });
+
+  test('legacy provider migration removes only retired columns', () async {
+    _downgradeToV7(raw);
+    raw.execute('ALTER TABLE clash_providers ADD COLUMN future_option TEXT');
+    raw.execute(
+      'INSERT INTO clash_providers (id, kind, label, url, interval, future_option) '
+      "VALUES (1, 'rule', 'Kept', '', 300, 'keep-me')",
+    );
+
+    await openAndMigrate();
+
+    expect(_columnsOf(raw, 'clash_providers'), isNot(contains('interval')));
+    expect(raw.select('SELECT future_option FROM clash_providers').single['future_option'], 'keep-me');
+  });
+
+  test('incomplete v1 rule mapping fails without modifying the database', () async {
+    _downgradeToV1(raw);
+    raw.execute('DROP TABLE profile_rule_mapping');
+    raw.execute(
+      'INSERT INTO rules (id, value) VALUES (1, ?)',
+      ['DOMAIN,example.com,DIRECT'],
+    );
+    final database = fl.Database(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    try {
+      await expectLater(database.customSelect('SELECT 1').get(), throwsA(anything));
+      expect(_userVersion(raw), 1);
+      expect(_columnsOf(raw, 'rules'), {'id', 'value'});
+      expect(raw.select('SELECT value FROM rules').single['value'], 'DOMAIN,example.com,DIRECT');
+    } finally {
+      try {
+        await database.close();
+      } catch (_) {
+        // Drift may rethrow the failed open on close.
+      }
+    }
+  });
+
   test('an empty v1 rules table still reaches v2', () async {
     _downgradeToV1(raw);
 

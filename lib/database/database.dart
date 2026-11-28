@@ -67,7 +67,7 @@ class Database extends _$Database {
     return MigrationStrategy(
       onUpgrade: (m, from, to) => transaction(() async {
         if (from < 2) {
-          await m.createTable(iconRecords);
+          await _createTableIfMissing(m, iconRecords);
           await _migrateV1Rules();
         }
         if (from < 3) {
@@ -83,7 +83,7 @@ class Database extends _$Database {
           await _createTableIfMissing(m, clashProviders);
         }
         if (from < 8) {
-          await m.alterTable(TableMigration(clashProviders));
+          await _removeLegacyProviderOptions();
         }
         if (from < 10) {
           await _createTableIfMissing(m, customProxies);
@@ -166,6 +166,18 @@ class Database extends _$Database {
     await m.renameColumn(table, oldName, column);
   }
 
+  /// Remove only the retired v7 columns. A downgraded user_version can
+  /// coexist with a newer table; rebuilding it from today's model would
+  /// discard columns introduced by another compatible release.
+  Future<void> _removeLegacyProviderOptions() async {
+    final columns = await _columnsOf(clashProviders.actualTableName);
+    for (final column in ['interval', 'filter', 'exclude_filter']) {
+      if (columns.contains(column)) {
+        await customStatement('ALTER TABLE clash_providers DROP COLUMN $column');
+      }
+    }
+  }
+
   /// alterTable re-creates the old index, which names the dropped column.
   Future<void> _dropProfileCustomProxies(Migrator m) async {
     final columns = await _columnsOf(customProxies.actualTableName);
@@ -224,6 +236,13 @@ class Database extends _$Database {
   /// order; [_migrateToCustomProfiles] then moves both onto the rules.
   Future<void> _migrateV1Rules() async {
     final columns = await _columnsOf('rules');
+    final mappingColumns = await _columnsOf('profile_rule_mapping');
+    if (mappingColumns.isEmpty) {
+      // Already converted: a stale user_version is not a reason to reorder
+      // current rules. A genuinely incomplete legacy shape must fail safely.
+      if (columns.contains('profile_id') && !columns.contains('value')) return;
+      throw StateError('Legacy rule mapping is missing');
+    }
     if (columns.contains('value')) {
       await customStatement(
         'ALTER TABLE rules ADD COLUMN rule_action TEXT NOT NULL DEFAULT ""',
@@ -294,6 +313,14 @@ class Database extends _$Database {
         ),
       );
     }
+    if ((await _columnsOf('profile_rule_mapping')).isEmpty) {
+      // The current schema no longer uses this table. Do not normalize
+      // unknown extend_type values from newer releases on a version rewind.
+      if (!(await _columnsOf('rules')).contains('profile_id')) {
+        throw StateError('Legacy rule mapping is missing');
+      }
+      return;
+    }
     final customOverwrites = {
       for (final row in await customSelect(
         'SELECT id FROM profiles '
@@ -305,9 +332,6 @@ class Database extends _$Database {
       "UPDATE profiles SET extend_type = 'standard', match_target = NULL "
       "WHERE extend_type NOT IN ('standard', 'script')",
     );
-    if ((await _columnsOf('profile_rule_mapping')).isEmpty) {
-      return;
-    }
     final profileIds = {
       for (final row in await customSelect('SELECT id FROM profiles').get())
         row.read<int>('id'),
@@ -526,7 +550,7 @@ extension TableInfoExt<Tbl extends Table, Row> on TableInfo<Tbl, Row> {
     Iterable<Insertable<Row>> items, {
     required Expression<bool> Function(Tbl tbl) deleteFilter,
     bool preDelete = false,
-  }) async {
+  }) {
     if (preDelete) {
       batch.deleteWhere(this, deleteFilter);
     }
