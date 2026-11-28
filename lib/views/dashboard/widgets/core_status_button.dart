@@ -87,7 +87,9 @@ class _CoreStatusButtonState extends ConsumerState<CoreStatusButton> {
         message: TextSpan(text: tip),
       );
       if (res != true || !mounted ||
-          (system.isWindows && !ref.read(initProvider))) return;
+          (system.isWindows && !ref.read(initProvider))) {
+        return;
+      }
       if (restartAll) {
         if (ref.read(safeModeProvider)) return;
         await ref.read(zapretControllerProvider.notifier)
@@ -274,7 +276,7 @@ class _CorePulseState extends State<CorePulse> with TickerProviderStateMixin {
     _beats?.cancel();
     _beats = null;
     _motion.stop();
-    if (context.disableAnimations || !TickerMode.of(context)) {
+    if (context.disableAnimations || !TickerMode.valuesOf(context).enabled) {
       _morph.stop();
       _morph.value = 1;
       _motion.value = 0;

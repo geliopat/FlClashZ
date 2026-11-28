@@ -498,7 +498,7 @@ class _ProxySpeedText extends ConsumerWidget {
       height: globalState.measure.textHeight(AppTextStyle.caption2) + 2,
       child: pending
           ? Row(children: [
-              if (running) CommonCircleLoading(size: 12)
+              if (running) const CommonCircleLoading(size: 12)
               else const GlyphIcon(AppGlyphs.clock, size: 12),
               const SizedBox(width: 6),
               Expanded(child: Text(l.forkSpeedTest, style: style,

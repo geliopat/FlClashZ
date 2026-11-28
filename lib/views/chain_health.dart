@@ -23,7 +23,7 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
       ref.read(coreStatusProvider) == CoreStatus.connected;
 
   bool get _visible => mounted && ModalRoute.of(context)?.isCurrent != false &&
-      TickerMode.of(context);
+      TickerMode.valuesOf(context).enabled;
   bool _available = false;
   String? _error;
   List<Map<String, dynamic>> _owners = const [];
@@ -101,9 +101,11 @@ class _ChainHealthViewState extends ConsumerState<ChainHealthView> {
         _jobs = _rows(state['jobs']);
       });
     } catch (error) {
-      if (_isCurrent(generation)) setState(() {
-        _error = '$error'; _available = false; _owners = const []; _jobs = const [];
-      });
+      if (_isCurrent(generation)) {
+        setState(() {
+          _error = '$error'; _available = false; _owners = const []; _jobs = const [];
+        });
+      }
     } finally {
       if (mounted && generation == _generation) setState(() => _busy = false);
     }

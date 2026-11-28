@@ -27,7 +27,7 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
       ref.read(coreStatusProvider) == CoreStatus.connected;
 
   bool get _visible => mounted && ModalRoute.of(context)?.isCurrent != false &&
-      TickerMode.of(context);
+      TickerMode.valuesOf(context).enabled;
   bool _supported = false;
   String? _error;
   int _capacity = 0;
@@ -126,10 +126,12 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
         _chains = rows('chains');
       });
     } catch (error) {
-      if (_isCurrent(generation)) setState(() {
-        _error = '$error'; _supported = false;
-        _capacity = 0; _chain = false; _closed = const []; _chains = const [];
-      });
+      if (_isCurrent(generation)) {
+        setState(() {
+          _error = '$error'; _supported = false;
+          _capacity = 0; _chain = false; _closed = const []; _chains = const [];
+        });
+      }
     } finally {
       if (mounted && generation == _generation) setState(() => _busy = false);
     }

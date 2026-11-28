@@ -48,8 +48,8 @@ class NetworkTestsView extends ConsumerWidget {
           generateSection(
             title: ru ? 'Скорость' : 'Speed',
             items: [
-              ListItem(title: const Text('DIRECT'),
-                subtitle: const Text('Yandex Internetometer')),
+              const ListItem(title: Text('DIRECT'),
+                subtitle: Text('Yandex Internetometer')),
               const SpeedTestUrlItem(),
               if (speedService == SpeedTestService.custom) ...const [
                 CustomSpeedUrlItem(upload: false),
