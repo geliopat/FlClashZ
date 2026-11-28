@@ -2,6 +2,10 @@
 
 Base: v1.1.4. Target proposed: v1.1.5. Work branch, not a stable release. All items require implementation and verification. Do not merge the temporary validation push trigger.
 
+## Mandatory acceptance principle
+
+Follow the permanent [obsolete-functionality and UI integration principles](core-integration-plan.md#permanent-development-principles--obsolete-functionality-user-approved). Before acceptance, audit current pinned APIs and Windows behavior; remove obsolete and duplicate controls/code, retain minimal safe legacy-input compatibility, place supported new functions in their proper sections, and verify actual effective configuration. No build or test dispatch without authorization.
+
 ## Candidate changes, pending CI
 - Semantic text-only network palette for connections, sidebar traffic and dashboard graphs, fixed hues and contrast adjustment; zero grey. Current contrast calculation uses estimated Flutter surface, not actual DWM backdrop. Validate real materials, stripe backgrounds and mutual color distinction.
 - Active connections tab first, reset to live when entering the section, while retaining both feed widgets. Re-entry regression added; sidebar routing and transient search/scroll reset remain pending.

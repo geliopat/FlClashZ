@@ -19,6 +19,15 @@ Core repository: https://github.com/geliopat/Clash.Meta
 
 Do not advance to the next stage until the previous stage's implementation and static review are complete. Runtime validation remains a separate authorized gate. Do not ask again for the order.
 
+## Permanent development principles — obsolete functionality (user-approved)
+
+- For every update of the core, adapter, Helper, Zapret2 or upstream client, compare supported functionality and parameters against the exact pinned source revision and actual Windows behavior. Do not retain obsolete, removed, ignored, superseded, redundant or unsupported platform-specific controls as available features.
+- Prefer the current native implementation. Remove obsolete UI, settings entries, duplicated execution paths, unused IPC, timers, wrappers and tests for retired behavior. Replace superseded implementations with the current equivalent; do not keep two active implementations for compatibility.
+- Preserve existing user data and original subscription/resource files. If legacy input has a current equivalent, translate it at the import/configuration boundary, preserving its semantics; prefer one-way migration of stored local settings when safe. Keep only the minimal compatibility reader needed for existing data. Do not expose obsolete controls again. If conversion is ambiguous or impossible, explicitly document the limitation and avoid silently inventing a new meaning or discarding supported user settings.
+- Add every new supported user-facing core feature in its appropriate existing UI section, with accurate availability/limits and no duplicate navigation. Native internal mechanisms do not require artificial controls.
+- Verify actual effective configuration, IPC, persistence, migration and UI behavior against the selected core. Tests must cover modern and legacy inputs and confirm that removed features cannot be reintroduced by normal UI actions. Do not roll back the selected core to retain obsolete client behavior.
+- Apply this principle during each review/refactoring and upstream sync, not only v1.1.5. It does not authorize removal of still-supported features, data loss, workflow dispatch, compilation or release without the agreed approval.
+
 ## Detailed implementation tasks (within the stages above)
 
 1. Review candidate patch dependencies and compile compatibility statically; complete remaining selected core fixes. Do not copy unrelated platform, TLS or listener changes.
