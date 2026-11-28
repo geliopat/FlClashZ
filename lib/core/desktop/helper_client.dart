@@ -330,14 +330,25 @@ final class HelperClient {
       return HelperReadiness.notReady;
     }
     final cancelToken = CancelToken();
-    final timeoutTimer = timeout == null
-        ? null
-        : Timer(
-            timeout,
-            () => cancelToken.cancel('helper ping deadline exceeded'),
-          );
+    final operation = _checkReadiness(cancelToken,
+      logFailure: logFailure, verifyHelperBinary: verifyHelperBinary);
+    if (timeout == null) return operation;
+    // Include manifest access and executable hashing in the deadline,
+    // not just the HTTP request. A late file read cannot initiate a ping.
+    return operation.timeout(timeout, onTimeout: () {
+      cancelToken.cancel('helper readiness deadline exceeded');
+      _logPingFailure('helper readiness deadline exceeded', logFailure);
+      return HelperReadiness.notReady;
+    });
+  }
+
+  Future<HelperReadiness> _checkReadiness(CancelToken cancelToken, {
+    required bool logFailure,
+    required bool verifyHelperBinary,
+  }) async {
     try {
       final coreSha256 = await _readCoreSha256Once();
+      if (cancelToken.isCancelled) return HelperReadiness.notReady;
       if (coreSha256.isEmpty) {
         _logPingFailure('Core manifest is missing or invalid', logFailure);
         return HelperReadiness.manifestMissing;
@@ -348,6 +359,7 @@ final class HelperClient {
         cancelToken: cancelToken,
         options: _options(ResponseType.plain, acceptAnyStatus: true),
       );
+      if (cancelToken.isCancelled) return HelperReadiness.notReady;
       final readiness = response.statusCode == HttpStatus.ok
           ? _readyFromOk(response, logFailure)
           : _notReadyFromPing(response, logFailure);
@@ -358,6 +370,7 @@ final class HelperClient {
           return HelperReadiness.notReady;
         }
         final bundledHash = await sha256.bind(File(_expectedHelperPath()).openRead()).first;
+        if (cancelToken.isCancelled) return HelperReadiness.notReady;
         if (bundledHash.toString() != runningHash) {
           _logPingFailure('Running Helper binary differs from bundled Helper', logFailure);
           return HelperReadiness.notReady;
@@ -365,10 +378,10 @@ final class HelperClient {
       }
       return readiness;
     } catch (error) {
-      _logPingFailure('helper ping failed: $error', logFailure);
+      if (!cancelToken.isCancelled) {
+        _logPingFailure('helper ping failed: $error', logFailure);
+      }
       return HelperReadiness.notReady;
-    } finally {
-      timeoutTimer?.cancel();
     }
   }
 

@@ -640,6 +640,8 @@ class ZapretController extends Notifier<ZapretState> {
   bool _profileApplying = false;
   bool _profileBlocked = false;
   bool _desiredRunning = false;
+  // Do not forget a failed stop just because a later IPC poll is unavailable.
+  bool _stopUnconfirmed = false;
 
   bool get _exiting => !ref.mounted || ref.read(systemActionProvider.notifier).isExiting;
 
@@ -1036,14 +1038,16 @@ class ZapretController extends Notifier<ZapretState> {
     _lifecycleStopping = true;
     _cancelTrial = true;
     final wasRunning = state.running || _desiredRunning;
+    _stopUnconfirmed = _stopUnconfirmed || wasRunning || state.busy;
     _desiredRunning = false;
     final readiness = await _client.readiness(timeout: _readinessTimeout, logFailure: false);
     if (readiness != HelperReadiness.ready) {
-      if (wasRunning || state.busy) {
+      if (_stopUnconfirmed) {
         throw StateError(AppLocalizations().forkStopUnconfirmed);
       }
       return false;
     }
+    _stopUnconfirmed = true;
     final before = await _client.zapretStatus();
     // Stop immediately; the service rejects any earlier command arriving late.
     await _client.stopZapret();
@@ -1058,6 +1062,7 @@ class ZapretController extends Notifier<ZapretState> {
     // Confirm again after all Dart workers have drained.
     final stopped = await _client.stopZapret();
     if (stopped.running) throw StateError(AppLocalizations().forkStillRunning);
+    _stopUnconfirmed = false;
     if (ref.mounted) {
       // A poll that started before stop may still own the refresh slot.
       // Publish the confirmed stop directly and invalidate that old poll.

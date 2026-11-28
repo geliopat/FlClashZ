@@ -933,6 +933,19 @@ void main() {
     },
   );
 
+  test('readiness deadline includes manifest access and suppresses late ping', () async {
+    final gate = Completer<String>();
+    final adapter = _ResponseAdapter(
+      (_) => throw StateError('expired readiness must not send a ping'),
+    );
+    final client = _client(adapter, readCoreSha256: () => gate.future);
+    final result = await client.readiness(timeout: const Duration(milliseconds: 30));
+    expect(result, HelperReadiness.notReady);
+    gate.complete(_coreSha256);
+    await Future<void>.delayed(Duration.zero);
+    expect(adapter.requestCount, 0);
+  });
+
   test('missing manifest never probes the Helper', () async {
     final adapter = _ResponseAdapter(
       (_) => throw StateError('ping should not be sent'),

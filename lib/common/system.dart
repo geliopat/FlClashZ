@@ -445,7 +445,7 @@ class Windows {
 
   Future<HelperReadiness> ensureHelperReady({bool forceReinstall = false}) async {
     final result = await registerService(forceReinstall: forceReinstall);
-    if (result == AuthorizeCode.error) {
+    if (result != AuthorizeCode.none && result != AuthorizeCode.success) {
       throw HelperException(
         code: 'helperUpdateFailed',
         message: _registrationError ?? 'Не удалось проверить или обновить Helper',
@@ -561,7 +561,10 @@ Future<AuthorizeCode> registerHelperService(
   void Function(String)? onFailure,
   Duration startupTimeout = const Duration(seconds: 6),
 }) async {
-  final readiness = await helperClient.readiness(verifyHelperBinary: verifyHelperBinary);
+  final readiness = await helperClient.readiness(
+    timeout: const Duration(seconds: 6),
+    verifyHelperBinary: verifyHelperBinary,
+  );
   switch (readiness) {
     case HelperReadiness.ready:
       if (!forceReinstall) {
