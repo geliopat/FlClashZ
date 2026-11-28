@@ -5,6 +5,7 @@ import 'package:fl_clash/features/features.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
+import 'package:fl_clash/ui/inherited.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -58,6 +59,9 @@ class DnsQueriesView extends ConsumerStatefulWidget {
 class _DnsQueriesViewState extends ConsumerState<DnsQueriesView>
     with RouteMotionHoldMixin<DnsQueriesView> {
   final _listController = DnsQueryListController();
+  bool _pageActive = true;
+  bool? _sectionActive;
+  bool _resetOnReturn = false;
   late final ScrollController _scrollController;
   late final _physics = FollowEndScrollPhysics(
     isFollowing: () => _listController.value.autoScrollToEnd,
@@ -74,7 +78,33 @@ class _DnsQueriesViewState extends ConsumerState<DnsQueriesView>
       _,
       _,
     ) {
-      _updateDnsQueriesThrottler();
+      if (_pageActive) _updateDnsQueriesThrottler();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = PageActivityScope.isActiveOf(context) &&
+        TickerMode.valuesOf(context).enabled;
+    final resumed = active && !_pageActive;
+    _pageActive = active;
+    final section = SectionActivityScope.isActiveOf(context);
+    if (_sectionActive == true && !section) _resetOnReturn = true;
+    _sectionActive = section;
+    if (!active || (!resumed && !_resetOnReturn)) return;
+    // Keep the underlying query ring live; only the view stops updating.
+    // A section re-entry also discards its paused history and search state.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageActive) return;
+      if (_resetOnReturn) {
+        _resetOnReturn = false;
+        _listController.search('');
+        _listController.updateKeywords(const []);
+        _listController.resumeAutoScrollToEnd(ref.read(dnsQueriesProvider).list);
+      } else {
+        _updateDnsQueriesThrottler();
+      }
     });
   }
 
@@ -89,12 +119,12 @@ class _DnsQueriesViewState extends ConsumerState<DnsQueriesView>
 
   void _updateDnsQueriesThrottler() {
     throttler.call((FunctionTag.dnsQueries, this), () {
-      if (!mounted) {
-        return;
-      }
-      updateWhenRouteSettled(
-        () => _listController.setDnsQueries(ref.read(dnsQueriesProvider).list),
-      );
+      if (!mounted || !_pageActive) return;
+      updateWhenRouteSettled(() {
+        if (mounted && _pageActive) {
+          _listController.setDnsQueries(ref.read(dnsQueriesProvider).list);
+        }
+      });
     }, duration: renderThrottleDuration);
   }
 

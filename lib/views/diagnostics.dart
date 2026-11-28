@@ -1,4 +1,5 @@
 import 'package:fl_clash/ui/icons/icons.dart';
+import 'package:fl_clash/ui/inherited.dart';
 import 'package:fl_clash/views/zapret_logs.dart';
 import 'package:fl_clash/views/recovery_history.dart';
 import 'package:fl_clash/views/resources.dart';
@@ -31,6 +32,18 @@ class DiagnosticsView extends ConsumerStatefulWidget {
 class _DiagnosticsViewState extends ConsumerState<DiagnosticsView> {
   bool _busy = false;
   int _tab = 0;
+  bool? _sectionActive;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = SectionActivityScope.isActiveOf(context);
+    if (_sectionActive == true && !active) _tab = 0;
+    _sectionActive = active;
+    // Keep the report and any ongoing diagnostic operation. Only the
+    // selected tab is transient navigation state.
+  }
+
   final _results = <String, String>{};
   DateTime? _observedAt;
   String _formatTime(DateTime time) => time.toLocal().toString().split('.').first;

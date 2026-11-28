@@ -7,6 +7,7 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/state.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
+import 'package:fl_clash/ui/inherited.dart';
 import 'package:fl_clash/views/dns_queries.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
@@ -283,6 +284,41 @@ void main() {
 
     expect(find.text('gamma.test'), findsOneWidget);
 
+    await teardownView(tester);
+  });
+
+  testWidgets('hidden DNS page catches up on return without rendering interim queries', (tester) async {
+    container.read(viewSizeProvider.notifier).update((_) => _tableSize);
+    tester.view.physicalSize = _tableSize;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    seedDnsQueries([_dnsQuery('alpha.test')]);
+    final active = ValueNotifier(true);
+    addTearDown(active.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: TestApp(child: ValueListenableBuilder<bool>(
+        valueListenable: active,
+        child: const DnsQueriesView(),
+        builder: (_, visible, child) => SectionActivityScope(
+          isActive: visible,
+          child: PageActivityScope(isActive: visible, child: child!),
+        ),
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('alpha.test'), findsOneWidget);
+    active.value = false;
+    await tester.pump();
+    container.read(dnsQueriesProvider.notifier).addQuery(_dnsQuery('hidden.test'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('hidden.test'), findsNothing);
+    expect(container.read(dnsQueriesProvider).list.any((q) => q.domain == 'hidden.test'), isTrue);
+    active.value = true;
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('hidden.test'), findsOneWidget);
     await teardownView(tester);
   });
 

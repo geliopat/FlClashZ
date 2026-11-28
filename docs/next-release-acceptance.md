@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Section lifecycle: DNS query view stops rendering updates while inactive or ticker-suspended, catches up from the unchanged ring on return, and resets its search/paused follow state on section re-entry. Diagnostics returns to its first tab without losing the timestamped report or cancelling running checks. Added hidden-DNS regression; Windows rendering and full section navigation tests pending.
+
 - Single Windows log export: ZIP contains retained Mihomo, Zapret, application, crash and recovery files, Helper's bounded native service archive and the current DNS-query ring. The manifest identifies unavailable sources and unflushed entries. ZIP creation runs off the UI isolate, the desktop picker selects a destination without loading the archive into RAM, and temporary files are removed. No subscriptions, settings or keys are added; original log content may include network data. Partial exports are explicitly reported. Regression and Windows picker checks pending.
 
 - Journals: crash history merges local Mihomo crash records and the native Helper/Zapret archive, independently reports unreadable sources, and excludes duplicated local Zapret copies. One combined Windows ZIP export in Settings / Logs replaces the separate Helper/Zapret export. Visible-entry copying remains in journal pages. Added local crash parser regression. The native archive remains bounded by its existing retention and IPC limits; UI and Windows picker validation pending.
