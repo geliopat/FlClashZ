@@ -1,6 +1,15 @@
-name: Full z3 client and signed candidate system tests (no publication)
+name: Z3 core integration and full client tests (no publication)
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Core integration now, full client acceptance before app release
+        type: choice
+        options:
+          - core
+          - full
+        default: core
+        required: true
 permissions:
   contents: read
 concurrency:
@@ -143,7 +152,35 @@ jobs:
       - name: Install Flutter dependencies
         id: pub_get
         run: flutter pub get
+      - name: Core integration Flutter suite
+        if: inputs.scope == 'core'
+        shell: pwsh
+        run: |
+          $tests = @(
+            'test/core',
+            'test/features/update/core_release_manifest_test.dart',
+            'test/features/update/download_test.dart',
+            'test/models/core_test.dart',
+            'test/models/provider_headers_test.dart',
+            'test/models/profile_settings_test.dart',
+            'test/providers/common_action_test.dart',
+            'test/providers/core_host_active_test.dart',
+            'test/providers/setup_action_test.dart',
+            'test/providers/setup_state_test.dart',
+            'test/providers/profile_settings_action_test.dart',
+            'test/providers/profile_headers_action_test.dart',
+            'test/providers/resources_action_test.dart',
+            'test/providers/proxies_action_test.dart',
+            'test/providers/outbound_ip_test.dart',
+            'test/providers/speed_test_test.dart',
+            'test/providers/system_action_test.dart',
+            'test/manager/core_manager_test.dart',
+            'test/setup_test.dart'
+          )
+          flutter test "--dart-define=FLCLASHZ_UPDATE_PUBLIC_KEY=$env:FLCLASHZ_UPDATE_PUBLIC_KEY" @tests
+          if ($LASTEXITCODE -ne 0) { throw 'Core integration tests failed' }
       - name: Full Flutter test suite
+        if: inputs.scope == 'full'
         shell: pwsh
         run: |
           flutter test "--dart-define=FLCLASHZ_UPDATE_PUBLIC_KEY=$env:FLCLASHZ_UPDATE_PUBLIC_KEY"
