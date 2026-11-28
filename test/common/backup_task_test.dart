@@ -1073,6 +1073,61 @@ void main() {
       );
     });
 
+    test('case aliases for an archive entry are rejected on every host', () async {
+      final archivePath = await zipOf({
+        configJsonName: utf8.encode(json.encode({'version': 1})),
+        'profiles/1.yaml': utf8.encode('first'),
+        'PROFILES/1.YAML': utf8.encode('second'),
+      });
+      await expectLater(restore(archivePath), failsWith(BackupFailure.invalid));
+    });
+
+    test('Windows device names and alternate streams are not extracted', () async {
+      final archivePath = await zipOf({
+        configJsonName: utf8.encode(json.encode({'version': 1})),
+        'profiles/1.yaml': utf8.encode('keep'),
+        'profiles/1.yaml:stream': utf8.encode('discard'),
+        'profiles/1.yaml.': utf8.encode('discard'),
+        'profiles/NUL.yaml': utf8.encode('discard'),
+        'profiles/sub/../1.yaml': utf8.encode('discard'),
+      });
+      await restore(archivePath);
+      final profiles = Directory(join(staging.path, 'profiles'));
+      expect(profiles.listSync().map((entity) => basename(entity.path)), ['1.yaml']);
+      expect(File(join(profiles.path, '1.yaml')).readAsStringSync(), 'keep');
+    });
+
+    test('SQLite sidecars cannot accompany a backup snapshot', () async {
+      for (final suffix in ['-wal', '-shm', '-journal']) {
+        final archivePath = await zipOf({
+          configJsonName: utf8.encode(json.encode({'version': 1})),
+          '$backupDatabaseName$suffix': [0],
+        });
+        // Use fresh staging for each attempt.
+        await expectLater(
+          readBackupArchive(archivePath: archivePath, stagingDirPath: makeDir('sidecar').path),
+          failsWith(BackupFailure.invalid),
+        );
+      }
+    });
+
+    test('a non-SQLite payload with a plausible version is rejected', () async {
+      final bytes = Uint8List(100);
+      ByteData.sublistView(bytes).setInt32(60, 23);
+      final archivePath = await zipOf({
+        configJsonName: utf8.encode(json.encode({'version': 1})),
+        backupDatabaseName: bytes,
+      });
+      await expectLater(restore(archivePath), failsWith(BackupFailure.invalid));
+    });
+
+    test('negative config versions are rejected', () async {
+      final archivePath = await zipOf({
+        configJsonName: utf8.encode(json.encode({'version': -1})),
+      });
+      await expectLater(restore(archivePath), failsWith(BackupFailure.invalid));
+    });
+
     test('a database from a newer schema is rejected', () async {
       await seedDatabase();
       final raw = db.Database(NativeDatabase(File(databasePath)));

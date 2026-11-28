@@ -133,7 +133,7 @@ Future<MigrationData> readBackupArchive({
   }
   final configMap = _decodeConfig(await configFile.readAsString());
   final version = configMap['version'] ?? 0;
-  if (version is! int) {
+  if (version is! int || version < 0) {
     throw const BackupException(BackupFailure.invalid);
   }
   if (version > Migration.currentVersion) {
@@ -308,13 +308,28 @@ Future<void> _extract(String archivePath, String stagingDirPath) async {
       if (file == null ||
           name.endsWith('/') ||
           name.endsWith('\\') ||
-          _isUnixLink(header) ||
-          !seen.add(name)) {
+          _isUnixLink(header)) {
         continue;
       }
       final outPath = _stagedEntryPath(stagingDirPath, name);
       if (outPath == null) {
         continue;
+      }
+      // Compare portable, normalized names even on a case-sensitive host.
+      // Otherwise differently spelled ZIP entries can overwrite each other
+      // on Windows or acquire different meaning on another platform.
+      final key = relative(outPath, from: stagingDirPath)
+          .replaceAll('\\', '/').toLowerCase();
+      if (!seen.add(key)) {
+        throw const BackupException(BackupFailure.invalid);
+      }
+      // A backup contains a standalone SQLite snapshot, never live sidecars.
+      // Do not allow an untrusted WAL or journal to change the checked file
+      // when Drift opens it.
+      if (['-wal', '-shm', '-journal'].any(
+        (suffix) => key == '${backupDatabaseName.toLowerCase()}$suffix',
+      )) {
+        throw const BackupException(BackupFailure.invalid);
       }
       final limit = remaining < maxBackupEntryBytes
           ? remaining
@@ -359,6 +374,23 @@ String? _stagedEntryPath(String stagingDirPath, String name) {
       normalized.startsWith('../')) {
     return null;
   }
+  // Win32 treats trailing dots/spaces and device names specially, and a
+  // colon can address a drive or NTFS alternate data stream. Reject these
+  // spellings on every host, not just Windows.
+  final components = name.replaceAll('\\', '/').split('/');
+  final device = RegExp(
+    r'^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)',
+    caseSensitive: false,
+  );
+  for (final component in components) {
+    if (component.isEmpty || component == '.' || component == '..' ||
+        component.endsWith('.') || component.endsWith(' ') ||
+        component.codeUnits.any((c) => c < 32) ||
+        component.contains(RegExp(r'[:<>|?*"]')) ||
+        device.hasMatch(component)) {
+      return null;
+    }
+  }
   final outPath = normalize(BackupEntries.resolve(stagingDirPath, normalized));
   if (!isWithin(stagingDirPath, outPath)) {
     return null;
@@ -385,11 +417,17 @@ Map<String, Object?> _decodeConfig(String source) {
 Future<int> _readSchemaVersion(File databaseFile) async {
   final handle = await databaseFile.open();
   try {
-    final header = await handle.read(64);
-    if (header.length < 64) {
+    final header = await handle.read(100);
+    const signature = 'SQLite format 3\x00';
+    if (header.length < 100 ||
+        !listEquals(header.sublist(0, signature.length), signature.codeUnits)) {
       throw const BackupException(BackupFailure.invalid);
     }
-    return ByteData.sublistView(header).getInt32(60);
+    final version = ByteData.sublistView(header).getInt32(60);
+    if (version <= 0) {
+      throw const BackupException(BackupFailure.invalid);
+    }
+    return version;
   } finally {
     await handle.close();
   }
