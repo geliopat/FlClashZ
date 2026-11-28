@@ -1104,6 +1104,28 @@ Map<String, dynamic> mergeSnifferOverride(
   return merged;
 }
 
+/// Translate a legacy subscription at the generated-config boundary, not in
+/// the stored subscription. Modern sniff takes precedence in Z3.
+Map<String, dynamic> normalizeLegacySniffer(Map<String, dynamic> raw) {
+  if (!raw.containsKey('sniffing') && !raw.containsKey('port-whitelist')) {
+    return raw;
+  }
+  final sniff = raw[SnifferOverrideKey.sniffSection];
+  // Let native validation report malformed input rather than replacing it.
+  if (sniff != null && sniff is! Map) return raw;
+  final legacy = raw['sniffing'];
+  final ports = raw['port-whitelist'];
+  if ((sniff is! Map || sniff.isEmpty) &&
+      ((legacy != null && (legacy is! List || legacy.any((name) => name is! String))) ||
+       (ports != null && ports is! List))) return raw;
+  return {
+    for (final entry in raw.entries)
+      if (entry.key != 'sniffing' && entry.key != 'port-whitelist' &&
+          entry.key != SnifferOverrideKey.sniffSection) entry.key: entry.value,
+    SnifferOverrideKey.sniffSection: _rawSniff(raw),
+  };
+}
+
 /// mihomo reads the deprecated `sniffing` list only while `sniff` is empty, so
 /// its protocols are carried into `sniff` before an override fills it.
 Map<Object?, Object?> _rawSniff(Map<String, dynamic> raw) {

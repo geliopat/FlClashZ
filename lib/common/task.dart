@@ -265,6 +265,17 @@ Future<RealProfile> _makeRealProfileTask(MakeRealProfileState data) async {
   rawConfig['geodata-loader'] = realPatchConfig.geodataLoader.name;
   rawConfig['geo-auto-update'] = realPatchConfig.geoAutoUpdate;
   rawConfig['geo-update-interval'] = realPatchConfig.geoUpdateInterval;
+  if (Platform.isWindows) {
+    final rawSniffer = rawConfig['sniffer'];
+    if (rawSniffer is Map) {
+      rawConfig['sniffer'] = normalizeLegacySniffer(
+        Map<String, dynamic>.from(rawSniffer),
+      );
+    }
+    // Z3 explicitly ignores the removed global fingerprint. Per-proxy
+    // client-fingerprint settings remain untouched.
+    rawConfig.remove('global-client-fingerprint');
+  }
   final snifferOverride = overrides.sniffer.overrideJson(
     overrides.snifferOverrideKeys,
     keepEmpty: Platform.isWindows && data.keepEmptyDnsOverrides,

@@ -4,6 +4,15 @@ import 'package:fl_clash/models/models.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('obsolete local sniffer fields do not invalidate other settings', () {
+    expect(decodeAdditionalSettings(
+      'sniffer.sniffing: [TLS]\nsniffer.port-whitelist: [443]\ngeodata-mode: true',
+    ), {'geodata-mode': true});
+    expect(additionalMihomoKeys.containsKey('sniffer.sniffing'), isFalse);
+    expect(additionalMihomoKeys.containsKey('sniffer.port-whitelist'), isFalse);
+    expect(() => validateAdditionalValue('sniffer.sniffing', ['TLS']),
+        throwsFormatException);
+  });
   test('additional overrides replace only explicit paths, preserve zero/false/empty', () {
     final raw = <String,dynamic>{
       'geodata-mode': true, 'tun': {'auto-route': true, 'icmp-timeout': 20, 'loopback-address': ['127.0.0.1']},

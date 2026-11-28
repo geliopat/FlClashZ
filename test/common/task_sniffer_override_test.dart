@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
@@ -97,6 +98,33 @@ void main() {
         'ports': ['443', '8443'],
       },
     });
+  });
+
+  test('Windows converts legacy subscriptions to modern sniff without editing the source', () async {
+    final source = <String, dynamic>{
+      'sniffing': ['tls'],
+      'port-whitelist': [443, '8443-8444'],
+      'override-destination': false,
+    };
+    final result = await _snifferOf(
+      rawConfig: {'sniffer': source},
+      overrides: const ProfileOverrides(),
+    );
+    if (Platform.isWindows) {
+      expect(result!['sniff'], {'TLS': {'ports': ['443', '8443-8444']}});
+      expect(result.containsKey('sniffing'), isFalse);
+      expect(result.containsKey('port-whitelist'), isFalse);
+      expect(result['override-destination'], false);
+    }
+    expect(source['sniffing'], ['tls']);
+  });
+
+  test('modern sniff takes precedence over obsolete lists', () {
+    expect(normalizeLegacySniffer({
+      'sniffing': ['TLS'],
+      'port-whitelist': [443],
+      'sniff': {'http': {'ports': ['80']}},
+    }), {'sniff': {'http': {'ports': ['80']}}});
   });
 
   test('leaves the profile alone without picked keys', () async {
