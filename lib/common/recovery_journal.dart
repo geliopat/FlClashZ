@@ -116,6 +116,8 @@ class RecoveryJournal {
 
   Future<void> flush() => _logger.flush();
 
+  Future<({List<File> files, int pending})> retainedFiles() => _logger.retainedFiles();
+
   Future<String> get directoryPath => _logger.directoryPath;
 
   Future<List<RecoveryEvent>> readRecent() async {

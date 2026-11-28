@@ -100,6 +100,17 @@ class FileLogger {
     return _drain;
   }
 
+  /// Snapshot the allow-listed retained log files, never unrelated files in
+  /// the log directory. Report pending writes that could not be flushed.
+  Future<({List<File> files, int pending})> retainedFiles() async {
+    await flush();
+    final files = await Directory(await directoryPath).list(followLinks: false)
+        .where((entry) => entry is File && _dayPattern.hasMatch(basename(entry.path)))
+        .cast<File>().toList();
+    files.sort((a, b) => a.path.compareTo(b.path));
+    return (files: files, pending: _pending.length);
+  }
+
   /// How long [archiveToday] keeps an archive for the app still reading it.
   static const shareRetention = Duration(days: 1);
 

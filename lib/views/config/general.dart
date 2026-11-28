@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:fl_clash/common/common.dart';
-import 'package:fl_clash/core/desktop/helper_client.dart';
+import 'package:fl_clash/common/log_export.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:convert';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/features/form/form.dart';
 import 'package:fl_clash/l10n/l10n.dart';
@@ -324,50 +326,85 @@ class OpenLogsFolderItem extends StatelessWidget {
   }
 }
 
-class ExportZapretArchiveItem extends StatefulWidget {
-  const ExportZapretArchiveItem({super.key});
+class ExportAllLogsItem extends ConsumerStatefulWidget {
+  const ExportAllLogsItem({super.key});
 
   @override
-  State<ExportZapretArchiveItem> createState() => _ExportZapretArchiveItemState();
+  ConsumerState<ExportAllLogsItem> createState() => _ExportAllLogsItemState();
 }
 
-class _ExportZapretArchiveItemState extends State<ExportZapretArchiveItem> {
+class _ExportAllLogsItemState extends ConsumerState<ExportAllLogsItem> {
   bool _busy = false;
 
   Future<void> _export() async {
     if (_busy) return;
+    final ru = Localizations.localeOf(context).languageCode == 'ru';
+    final dns = jsonEncode([
+      for (final query in ref.read(dnsQueriesProvider).list)
+        {
+          'time': query.time.toString(),
+          'domain': query.domain,
+          'type': query.type,
+          'initiator': query.initiator?.label,
+          'resolver': query.resolverName,
+          'upstream': query.upstream,
+          'cached': query.cached,
+          'stages': query.stages,
+          'rcode': query.rcode,
+          'delay': query.delay,
+          'answers': query.answers,
+          'error': query.error,
+        },
+    ]);
     setState(() => _busy = true);
+    Directory? temp;
     try {
-      final archive = await helperClient.zapretLogArchive();
+      temp = await Directory.systemTemp.createTemp('flclashz-logs-');
+      final name = 'FlClashZ-logs-${DateTime.now().millisecondsSinceEpoch}.zip';
+      final archive = File('${temp.path}${Platform.pathSeparator}$name');
+      final incomplete = await exportAllLogs(archive, dnsSnapshot: dns);
       if (!mounted) return;
-      final directory = await Directory.systemTemp.createTemp('flclashz-journal-');
-      try {
-        final file = File('${directory.path}${Platform.pathSeparator}FlClashZ-helper-zapret.jsonl');
-        await file.writeAsString(archive, flush: true);
-        if (!mounted) return;
-        final saved = await picker.saveFileWithPath('FlClashZ-helper-zapret.jsonl', file.path);
-        if (saved != null && mounted) {
-          dialogs.showNotifier(context.appLocalizations.exportSuccess);
-        }
-      } finally {
-        await directory.delete(recursive: true);
+      // Windows can choose a destination without loading the ZIP into RAM.
+      final destination = await FilePicker.saveFile(
+        fileName: name, initialDirectory: await appPath.downloadDirPath,
+      );
+      if (destination == null || !mounted) return;
+      if (destination.scheme != 'file') throw StateError('Invalid archive destination');
+      await archive.copy(destination.toFilePath());
+      if (!mounted) return;
+      if (incomplete.isNotEmpty) {
+        dialogs.showNotifier(
+          ru ? 'Архив сохранён частично: ${incomplete.join(', ')}'
+             : 'Partial archive saved: ${incomplete.join(', ')}',
+          level: MessageLevel.warning,
+        );
+      } else {
+        dialogs.showNotifier(context.appLocalizations.exportSuccess);
       }
     } catch (_) {
       if (mounted) dialogs.showNotifier(context.appLocalizations.forkReportSaveFailed,
           level: MessageLevel.error);
     } finally {
+      if (temp != null) {
+        try { await temp.delete(recursive: true); } catch (_) {}
+      }
       if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) => ListItem(
-    leading: const GlyphIcon(AppGlyphs.export),
-    title: Text(Localizations.localeOf(context).languageCode == 'ru'
-        ? 'Экспорт архива Helper / Zapret' : 'Export Helper / Zapret archive'),
-    onTap: _busy ? null : _export,
-    trailing: _busy ? const CommonCircleLoading() : null,
-  );
+  Widget build(BuildContext context) {
+    final ru = Localizations.localeOf(context).languageCode == 'ru';
+    return ListItem(
+      leading: const GlyphIcon(AppGlyphs.export),
+      title: Text(ru ? 'Экспорт всех логов' : 'Export all logs'),
+      subtitle: Text(ru
+          ? 'ZIP: все сохранённые журналы и текущие DNS-запросы. Может содержать сетевые данные.'
+          : 'ZIP: retained logs and current DNS queries. May contain network data.'),
+      onTap: _busy ? null : _export,
+      trailing: _busy ? const CommonCircleLoading() : null,
+    );
+  }
 }
 
 class ShareLogsItem extends StatefulWidget {
@@ -789,9 +826,13 @@ class GeneralView extends ConsumerWidget {
                   title: Text(AppLocalizations.of(context).forkOpenZapretLogs),
                   onTap: () async => system.openDirectory(await zapretFileLogger.directoryPath),
                 ),
-                const ExportZapretArchiveItem(),
               ],
               footer: AppLocalizations.of(context).forkEngineDebugTip,
+            ),
+          if (system.isWindows)
+            generateSection(
+              title: appLocalizations.logs,
+              items: const [ExportAllLogsItem()],
             ),
           generateSection(
             title: AppLocalizations.of(context).forkResetSettings,
