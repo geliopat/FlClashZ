@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Recovery: capture the Windows VPN run intent before Helper/Zapret preparation so a user stop during preflight cannot revive the old VPN or linked Zapret run. Watchdog rechecks enablement and exclusive core activation before each retry and after waiting for a competing restart. Failed preference writes restore only a confirmed value. Added preflight-stop regression; execution pending. Existing three-attempt/five-second Mihomo crash policy retained. Patch 23 / per-profile geodata deferred until after the current Z3 plan.
+
 - Profile resource refresh now credits a Geo completion only when a locally issued request, observed start and accepted RPC belong to the same applied profile generation. The released Z3 event lacks request and source URL identity; this is conservative client correlation, not proof of provenance. Passive/obsolete completions cannot mark the next profile refreshed. Ambiguous events remain eligible for retry; native timers and source URLs remain unchanged. Regression added, execution pending.
 
 - Z3 experimental QUIC GSO/ECN settings are process-scoped: the pinned executor only sets environment flags to true and never unsets them on false. The client labels these options as requiring a full core-process restart, including profile switches. No automatic restart is introduced. Verify changed true/false settings on actual Windows with a fresh core process; a live profile apply must not be represented as proof of a changed QUIC runtime setting. Other supported parameters remain intact.

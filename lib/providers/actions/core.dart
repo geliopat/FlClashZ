@@ -168,6 +168,15 @@ class CoreAction extends _$CoreAction {
       ) {
         _unansweredCrash = null;
         if (_exiting) return;
+        if (system.isWindows && !ref.read(mihomoWatchdogProvider)) {
+          final id = recoveryJournal.begin('Mihomo', 'watchdog');
+          recoveryJournal.record(id, 'Mihomo', 'watchdog', RecoveryOutcome.skipped);
+          return;
+        }
+        if (_coreReleaseOperation != null) {
+          _coreReleaseCrashed = true;
+          return;
+        }
         if (_failedRestarts >= crashRestartLimit) {
           if (system.isWindows) {
             final id = recoveryJournal.begin('Mihomo', 'watchdog-limit');
@@ -187,6 +196,17 @@ class CoreAction extends _$CoreAction {
         // restartCore() joins a restart under way instead of relaunching.
         await _restartOperation?.catchError((_) => false);
         if (_exiting) return;
+        // The watchdog may have been disabled or an exclusive release trial
+        // started while we waited for the preceding worker.
+        if (system.isWindows && !ref.read(mihomoWatchdogProvider)) {
+          final id = recoveryJournal.begin('Mihomo', 'watchdog');
+          recoveryJournal.record(id, 'Mihomo', 'watchdog', RecoveryOutcome.skipped);
+          return;
+        }
+        if (_coreReleaseOperation != null) {
+          _coreReleaseCrashed = true;
+          return;
+        }
         final running = ref.read(setupActionProvider.notifier).requestedRunning;
         _restartingAfterCrash = true;
         try {
@@ -358,6 +378,9 @@ class CoreAction extends _$CoreAction {
     var lifecycleStarted = false;
     final setupAction = ref.read(setupActionProvider.notifier);
     final bool wasRunning = running ?? ref.read(isStartProvider);
+    // Capture before any Helper/Zapret preparation awaits. A user stop
+    // during preflight must supersede the previously captured running flag.
+    var runIntent = setupAction.runIntent;
     var restartZapret = false;
     final zapret = system.isWindows && !ref.read(safeModeProvider)
         ? ref.read(zapretControllerProvider.notifier) : null;
@@ -376,8 +399,9 @@ class CoreAction extends _$CoreAction {
       final stopping = coreIsEmbedded && wasRunning
           ? setupAction.setRunning(false)
           : null;
-      final runIntent = setupAction.runIntent;
       if (coreIsEmbedded) {
+        // Embedded restart deliberately issues its own stop first.
+        runIntent = setupAction.runIntent;
         await stopping;
         await _core.shutdown();
       }
@@ -407,7 +431,8 @@ class CoreAction extends _$CoreAction {
       } while (_relaunchRequested);
       if (_exiting) return false;
       zapret?.endCoreRestart();
-      if (applied && zapret != null && ref.read(isStartProvider) && !ref.read(safeModeProvider)) {
+      if (applied && zapret != null && ref.read(isStartProvider) &&
+          setupAction.requestedRunning != false && !ref.read(safeModeProvider)) {
         await zapret.startAlongsideMihomo(force: restartZapret).catchError((Object error) {
           commonPrint.log('Linked Zapret restart failed: $error', logLevel: LogLevel.warning);
         });

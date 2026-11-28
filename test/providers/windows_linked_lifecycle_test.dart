@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fl_clash/common/traffic_history.dart';
@@ -20,6 +21,8 @@ class _Zapret extends ZapretController {
   _Zapret(this.events);
   final List<String> events;
   bool failStop = false;
+  Completer<void>? prepareStarted;
+  Completer<void>? prepareRelease;
 
   @override
   ZapretState build() => const ZapretState();
@@ -42,6 +45,8 @@ class _Zapret extends ZapretController {
   @override
   Future<bool> beginCoreRestart({bool repairHelper = false}) async {
     events.add('helper:prepare:$repairHelper');
+    prepareStarted?.complete();
+    await prepareRelease?.future;
     return stopAlongsideMihomo();
   }
 
@@ -158,6 +163,39 @@ void main() {
     zapret.failStop = false;
     expect(await setup.setTrayRunning(false), isTrue);
     expect(container.read(zapretControllerProvider).running, isFalse);
+  }, skip: !Platform.isWindows);
+
+  test('Windows stop during Helper preflight supersedes restart restoration', () async {
+    await mockPreferences();
+    final events = <String>[];
+    final zapret = _Zapret(events)
+      ..prepareStarted = Completer<void>()
+      ..prepareRelease = Completer<void>();
+    final container = ProviderContainer(overrides: [
+      trafficHistoryProvider.overrideWith((ref) => TrafficHistory(persist: false)),
+      profilesProvider.overrideWith(TestProfiles.new),
+      setupActionProvider.overrideWith(() => _Setup(events)),
+      commonActionProvider.overrideWith(TestCommonAction.new),
+      coreActionProvider.overrideWith(() => _Core(events)),
+      zapretControllerProvider.overrideWith(() => zapret),
+      safeModeProvider.overrideWithValue(false),
+    ]);
+    globalState.container = container;
+    globalState.needInitStatus = true;
+    addTearDown(container.dispose);
+    container.read(initProvider.notifier).value = true;
+    final setup = container.read(setupActionProvider.notifier);
+    expect(await setup.setRunning(true, initialize: true), isTrue);
+    events.clear();
+    final restart = container.read(coreActionProvider.notifier).restartCore();
+    await zapret.prepareStarted!.future;
+    await setup.setRunning(false);
+    zapret.prepareRelease!.complete();
+    expect(await restart, isTrue);
+    expect(container.read(isStartProvider), isFalse);
+    expect(events, contains('mihomo:process:restart'));
+    expect(events, isNot(contains('mihomo:listener:true')));
+    expect(events.where((event) => event.startsWith('zapret:start:')), isEmpty);
   }, skip: !Platform.isWindows);
 
   test('Windows refuses a full restart when Zapret stop fails', () async {

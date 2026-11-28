@@ -10,6 +10,7 @@ final mihomoWatchdogProvider = NotifierProvider<MihomoWatchdog, bool>(MihomoWatc
 class MihomoWatchdog extends Notifier<bool> {
   static const _key = 'mihomo.watchdog';
   int _revision = 0;
+  bool? _confirmed;
   Future<void> _writes = Future.value();
 
   @override
@@ -18,7 +19,10 @@ class MihomoWatchdog extends Notifier<bool> {
     scheduleMicrotask(() async {
       try {
         final prefs = await SharedPreferences.getInstance();
-        if (ref.mounted && revision == _revision) state = prefs.getBool(_key) ?? true;
+        if (ref.mounted && revision == _revision) {
+          _confirmed = prefs.getBool(_key) ?? true;
+          state = _confirmed!;
+        }
       } catch (_) {
         commonPrint.log('Mihomo watchdog settings unavailable', logLevel: LogLevel.warning);
       }
@@ -32,12 +36,17 @@ class MihomoWatchdog extends Notifier<bool> {
     final operation = _writes.then((_) async {
       try {
         final prefs = await SharedPreferences.getInstance();
-        final previous = prefs.getBool(_key) ?? true;
+        _confirmed = prefs.getBool(_key) ?? true;
         if (!await prefs.setBool(_key, value)) {
-          if (ref.mounted && revision == _revision) state = previous;
-          commonPrint.log('Mihomo watchdog settings save failed', logLevel: LogLevel.warning);
+          throw StateError('Watchdog preference write rejected');
         }
+        _confirmed = value;
       } catch (_) {
+        // Restore only a confirmed persisted value, and never overwrite
+        // a newer user intent with a late failure.
+        if (ref.mounted && revision == _revision && _confirmed != null) {
+          state = _confirmed!;
+        }
         commonPrint.log('Mihomo watchdog settings save failed', logLevel: LogLevel.warning);
       }
     });
