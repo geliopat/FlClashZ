@@ -114,6 +114,49 @@ void main() {
     expect(container.read(settingReleasableProvider(dashboardWidgetsSetting)), isFalse);
   });
 
+  test('unrelated headers preserve a locally chosen theme colour', () async {
+    container.read(themeSettingProvider.notifier).update(
+      (state) => state.copyWith(primaryColor: 0xFF112233),
+    );
+    await select(_profile(1, view: 'app.theme:dark'));
+    expect(container.read(themeSettingProvider).primaryColor, 0xFF112233);
+    expect(container.read(appSettingProvider).headerBackup,
+        isNot(contains('theme.color')));
+    await select(_profile(2));
+    expect(container.read(themeSettingProvider).primaryColor, 0xFF112233);
+  });
+
+  test('profile colour overrides restore the original local colour', () async {
+    container.read(themeSettingProvider.notifier).update(
+      (state) => state.copyWith(primaryColor: 0xFF112233),
+    );
+    await select(_profile(1, view: 'app.color:FF5733'));
+    expect(container.read(themeSettingProvider).primaryColor, 0xFFFF5733);
+    expect(container.read(appSettingProvider).headerBackup['theme.color'],
+        0xFF112233);
+    await select(_profile(2, view: 'app.color:3366CC'));
+    expect(container.read(themeSettingProvider).primaryColor, 0xFF3366CC);
+    await select(_profile(3));
+    expect(container.read(themeSettingProvider).primaryColor, 0xFF112233);
+    expect(container.read(appSettingProvider).headerBackup,
+        isNot(contains('theme.color')));
+  });
+
+  test('an explicitly saved null colour is restored after a panel override',
+      () async {
+    container.read(themeSettingProvider.notifier).update(
+      (state) => state.copyWith(primaryColor: null),
+    );
+    await select(_profile(1, view: 'app.color:FF5733'));
+    final backup = container.read(appSettingProvider).headerBackup;
+    expect(backup.containsKey('theme.color'), isTrue);
+    expect(backup['theme.color'], isNull);
+    await select(_profile(2));
+    expect(container.read(themeSettingProvider).primaryColor, isNull);
+    expect(container.read(appSettingProvider).headerBackup,
+        isNot(contains('theme.color')));
+  });
+
   test('the view header hides the proxies that timed out', () async {
     await select(_profile(1, view: 'proxies.hidetimeout:true'));
     expect(
