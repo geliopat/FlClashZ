@@ -3,6 +3,7 @@ import 'package:fl_clash/common/cidr.dart';
 import 'package:fl_clash/common/input_limits.dart';
 import 'package:fl_clash/enum/enum.dart';
 
+import 'additional_mihomo_settings.dart';
 import 'clash_config.dart';
 import 'config.dart';
 
@@ -238,8 +239,11 @@ PatchClashConfig withProfileGeoUrls(PatchClashConfig patch, Object? raw) {
 Map<String, Object?> sectionOverrideValues(
   Map<String, dynamic> config, String section, Iterable<OverrideKey> keys,
 ) {
-  final raw = config[section];
-  if (raw is! Map) return const {};
+  final sectionValue = config[section];
+  if (sectionValue is! Map) return const {};
+  final raw = section == 'tun'
+      ? normalizeTunRouteAliases(Map<String, dynamic>.from(sectionValue))
+      : sectionValue;
   final result = <String, Object?>{};
   // Z3 only reads legacy sniffing/port-whitelist when sniff is empty.
   // Present the effective protocols in the regular typed editor as well.

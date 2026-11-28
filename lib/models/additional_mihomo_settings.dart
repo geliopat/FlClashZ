@@ -26,11 +26,43 @@ const additionalMihomoKeys = <String, MihomoValueKind>{
   'tun.loopback-address': MihomoValueKind.strings,
   'tun.endpoint-independent-nat': MihomoValueKind.boolean,
   'tun.icmp-timeout': MihomoValueKind.integer,
-  'tun.inet4-route-address': MihomoValueKind.strings,
-  'tun.inet6-route-address': MihomoValueKind.strings,
-  'tun.inet4-route-exclude-address': MihomoValueKind.strings,
-  'tun.inet6-route-exclude-address': MihomoValueKind.strings,
 };
+
+/// Z3 appends these address-family lists to the generic lists before
+/// splitting routes by family. They are compatibility inputs, not separate
+/// user-facing settings.
+const _tunRouteAliases = <String, List<String>>{
+  'route-address': ['inet4-route-address', 'inet6-route-address'],
+  'route-exclude-address': ['inet4-route-exclude-address', 'inet6-route-exclude-address'],
+};
+
+/// Preserve order, duplicates, explicit empty lists and unrelated options.
+/// Do not hide malformed lists from native validation.
+Map<String, dynamic> normalizeTunRouteAliases(Map<String, dynamic> raw) {
+  final result = Map<String, dynamic>.of(raw);
+  for (final entry in _tunRouteAliases.entries) {
+    final aliases = entry.value;
+    if (!aliases.any(raw.containsKey)) continue;
+    final names = [entry.key, ...aliases];
+    if (names.any((name) {
+      final value = raw[name];
+      return value != null &&
+          (value is! List || value.any((route) => route is! String));
+    })) continue;
+    result[entry.key] = [
+      for (final name in names)
+        if (raw[name] case final List routes) ...routes.cast<String>(),
+    ];
+    for (final alias in aliases) {
+      result.remove(alias);
+    }
+  }
+  return result;
+}
+
+bool _isStoredTunAlias(String path) => _tunRouteAliases.values
+    .expand((aliases) => aliases)
+    .any((alias) => path == 'tun.$alias');
 
 /// Never infer absence from null/false/zero. Map keys are fixed paths only;
 /// policy domains and lists remain values rather than split path components.
@@ -74,8 +106,19 @@ Map<String, Object> decodeAdditionalSettings(String content) {
   return {
     for (final e in decoded.entries)
       if (!const {'sniffer.sniffing', 'sniffer.port-whitelist'}.contains(e.key))
-        e.key.toString(): validateAdditionalValue(e.key.toString(), e.value),
+        e.key.toString(): _isStoredTunAlias(e.key.toString())
+            ? _decodeStoredTunAlias(e.key.toString(), e.value)
+            : validateAdditionalValue(e.key.toString(), e.value),
   };
+}
+
+// Retain local data written by the unreleased additional editor; it is
+// normalized with the subscription before the generic TUN override wins.
+List<String> _decodeStoredTunAlias(String path, Object? value) {
+  if (value is! List || value.any((route) => route is! String)) {
+    throw FormatException('Invalid value for $path');
+  }
+  return value.cast<String>().toList();
 }
 
 /// Restore explicitly supplied section values before the application's

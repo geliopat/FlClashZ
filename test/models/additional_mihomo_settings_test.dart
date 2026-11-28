@@ -4,6 +4,21 @@ import 'package:fl_clash/models/models.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('TUN aliases are compatibility inputs, not extra controls', () {
+    const path = 'tun.inet6-route-address';
+    expect(additionalMihomoKeys.containsKey(path), isFalse);
+    expect(() => validateAdditionalValue(path, ['2001:db8::/32']), throwsFormatException);
+    final raw = <String, dynamic>{'tun': {'route-address': ['192.0.2.0/24']}};
+    applyAdditionalSettings(raw, '$path: ["2001:db8::/32"]');
+    expect(normalizeTunRouteAliases(Map<String, dynamic>.from(raw['tun'] as Map)), {
+      'route-address': ['192.0.2.0/24', '2001:db8::/32'],
+    });
+    expect(yamlSectionSourcesOf(1, raw).tun['route-address'],
+        ['192.0.2.0/24', '2001:db8::/32']);
+    expect(normalizeTunRouteAliases({'inet4-route-address': []}), {'route-address': []});
+    expect(normalizeTunRouteAliases({'inet4-route-address': 'invalid'}),
+        {'inet4-route-address': 'invalid'});
+  });
   test('obsolete local sniffer fields do not invalidate other settings', () {
     expect(decodeAdditionalSettings(
       'sniffer.sniffing: [TLS]\nsniffer.port-whitelist: [443]\ngeodata-mode: true',

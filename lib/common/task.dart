@@ -242,8 +242,12 @@ Future<RealProfile> _makeRealProfileTask(MakeRealProfileState data) async {
   // interface-name wins over the detected interface anyway. A profile's own
   // dns-hijack may leave queries to other resolvers unhijacked, so only a
   // picked key replaces any:53.
+  final sourceTun = rawConfig['tun'];
   final tun = {
-    if (rawConfig['tun'] is Map) ...rawConfig['tun'] as Map,
+    if (sourceTun is Map)
+      ...(Platform.isWindows
+          ? normalizeTunRouteAliases(Map<String, dynamic>.from(sourceTun))
+          : sourceTun),
     'dns-hijack': defaultDnsHijack,
     ...overrides.tun.overrideJson(overrides.tunOverrideKeys, keepEmpty: Platform.isWindows && data.keepEmptyDnsOverrides),
     // Preserve resolver protection when the explicit list is empty.

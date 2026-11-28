@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -30,6 +32,7 @@ Future<YamlMap> _tunOf({
       realPatchConfig: const PatchClashConfig(),
       overrides: overrides,
       bypassPrivateRoute: bypassPrivateRoute,
+      keepEmptyDnsOverrides: true,
       appendSystemDns: false,
       proxyGroups: const [],
       rules: const [],
@@ -106,6 +109,34 @@ void main() {
       ]);
     },
   );
+
+  test('Windows combines all route families before explicit overrides', () async {
+    if (!Platform.isWindows) return;
+    final raw = <String, dynamic>{
+      'tun': {
+        'route-address': ['192.0.2.0/24'],
+        'inet4-route-address': ['198.51.100.0/24'],
+        'inet6-route-address': ['2001:db8::/32'],
+        'inet6-route-exclude-address': ['fd00::/8'],
+      },
+    };
+    final inherited = await _tunOf(rawConfig: raw, overrides: const ProfileOverrides());
+    expect(inherited['route-address'], ['192.0.2.0/24', '198.51.100.0/24', '2001:db8::/32']);
+    expect(inherited['route-exclude-address'], ['fd00::/8']);
+    expect(inherited.containsKey('inet4-route-address'), isFalse);
+    expect(inherited.containsKey('inet6-route-address'), isFalse);
+    final overridden = await _tunOf(
+      rawConfig: raw,
+      overrides: const ProfileOverrides(
+        tun: ProfileTun(routeAddress: [], routeExcludeAddress: ['10.0.0.0/8']),
+        tunOverrideKeys: {TunOverrideKey.routeAddress, TunOverrideKey.routeExcludeAddress},
+      ),
+    );
+    expect(overridden['route-address'], isEmpty);
+    expect(overridden['route-exclude-address'], ['10.0.0.0/8']);
+    expect(overridden.containsKey('inet6-route-exclude-address'), isFalse);
+    expect((raw['tun'] as Map).containsKey('inet6-route-address'), isTrue);
+  });
 
   test('leaves the profile alone without picked keys', () async {
     final tun = await _tunOf(
