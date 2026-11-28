@@ -21,31 +21,13 @@ enum NetworkTone {
   final int _dark;
   final int _light;
 
-  static double contrast(Color a, Color b) {
-    final x = a.computeLuminance();
-    final y = b.computeLuminance();
-    return x > y ? (x + .05) / (y + .05) : (y + .05) / (x + .05);
-  }
+  static double contrast(Color a, Color b) => foregroundContrast(a, b);
 
   Color on(Color background) {
-    const black = Color(0xFF000000);
-    const white = Color(0xFFFFFFFF);
-    final darkBackground = contrast(white, background) >= contrast(black, background);
+    final darkBackground = contrast(Colors.white, background) >=
+        contrast(Colors.black, background);
     final base = Color(darkBackground ? _dark : _light);
-    if (contrast(base, background) >= 4.5) return base;
-    final target = darkBackground ? white : black;
-    var lo = 0.0;
-    var hi = 1.0;
-    for (var i = 0; i < 16; i++) {
-      final mid = (lo + hi) / 2;
-      if (contrast(Color.lerp(base, target, mid)!, background) >= 4.5) {
-        hi = mid;
-      } else {
-        lo = mid;
-      }
-    }
-    final result = Color.lerp(base, target, hi)!;
-    return contrast(result, background) >= 4.5 ? result : target;
+    return readableForeground(base, background);
   }
 
   static final _cache = <Color, Map<NetworkTone, Color>>{};
@@ -54,8 +36,8 @@ enum NetworkTone {
     final rawSurface = context.surfaceLevel.colorOf(context.colorScheme);
     // Resolve alpha against a theme-matched backdrop estimate rather than
     // treating a translucent RGB value as a measured desktop pixel.
-    final surface = PaneBackdropEstimate.maybeOf(context) ?? Color.alphaBlend(rawSurface, context.colorScheme.brightness == Brightness.dark
-        ? const Color(0xFF181818) : const Color(0xFFF5F5F5));
+    final surface = PaneBackdropEstimate.maybeOf(context) ??
+        estimatedBackdrop(context.colorScheme, rawSurface);
     if (!_cache.containsKey(surface) && _cache.length >= 32) {
       _cache.remove(_cache.keys.first);
     }

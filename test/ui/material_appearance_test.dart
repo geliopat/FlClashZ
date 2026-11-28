@@ -77,6 +77,25 @@ void main() {
     expect(find.byType(LocalMaterialPane), findsNothing);
   });
 
+  test('enabled text meets estimated AA on tinted local surfaces', () {
+    for (final brightness in Brightness.values) {
+      for (final seed in [Colors.blue, Colors.red, Colors.green]) {
+        final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness);
+        for (final effect in MaterialEffect.values) {
+          for (final opacity in [0.0, .25, .5, 1.0]) {
+            final fill = paneColor(scheme.surface, scheme,
+                (effect: effect, opacity: opacity, blur: 12.0, tint: 1.0));
+            final background = estimatedBackdrop(scheme, fill);
+            for (final preferred in [scheme.onSurface, scheme.onSurfaceVariant, scheme.primary]) {
+              final foreground = readableForeground(preferred, background);
+              expect(foregroundContrast(foreground, background), greaterThanOrEqualTo(4.5));
+            }
+          }
+        }
+      }
+    }
+  });
+
   test('opaque stays opaque and acrylic respects local opacity', () {
     final scheme = ColorScheme.fromSeed(seedColor: Colors.blue);
     final opaque = paneColor(scheme.surface, scheme, defaultPaneAppearance);

@@ -35,7 +35,7 @@ class ThemeView extends StatelessWidget {
           bottom: 32 + context.bottomInset,
         ),
         children: [
-          const ThemeLivePreview(),
+          if (!system.isWindows) const ThemeLivePreview(),
           const SizedBox(height: 16),
           const ManagedSettingsHint(keys: themePageKeys),
           if (system.isWindows && !safeModeBuild) ...const [
@@ -243,73 +243,115 @@ class _WindowMaterialPreview extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final actual = ref.watch(windowMaterialProvider);
+    final requested = ref.watch(windowMaterialPreferenceProvider);
+    final settings = ref.watch(materialAppearanceProvider);
     final effect = actual.value ?? WindowEffect.none;
-    final scheme = context.colorScheme;
     final ru = Localizations.localeOf(context).languageCode == 'ru';
-    final label = switch (effect) {
-      WindowEffect.mica => 'Mica',
-      WindowEffect.micaAlt => 'Mica Alt',
-      WindowEffect.acrylic => 'Acrylic',
+    String label(MaterialEffect effect) => switch (effect) {
+      MaterialEffect.mica => 'Mica',
+      MaterialEffect.micaAlt => 'Mica Alt',
+      MaterialEffect.acrylic => 'Acrylic',
       _ => ru ? 'Без прозрачности' : 'Opaque',
     };
+    final scheme = context.colorScheme;
+    final actualLabel = label(paneEffect(effect.name));
+    final requestedEffect = requested.value;
+    final fallback = !actual.isLoading && requestedEffect != null &&
+        requestedEffect != effect;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        spacing: 8,
+        spacing: 10,
         children: [
-          Text('${ru ? 'Предпросмотр' : 'Preview'} · $label',
+          Text('${ru ? 'Предпросмотр окна' : 'Window preview'} · $actualLabel',
             style: context.listCaptionStyle),
-          // The selected native effect is applied to the real window. This
-          // example uses its actual Flutter theme, not a simulated DWM panel.
-          SurfaceScope(
-            level: SurfaceLevel.card,
-            child: Builder(builder: (context) => LocalMaterialPane(
-              appearance: MaterialAppearanceTheme.of(context)?.pane(AppearanceSurface.card)
-                  ?? defaultPaneAppearance,
-              color: SurfaceLevel.card.colorOf(scheme),
-              shape: AppShape.xl,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 12,
+          if (actual.isLoading || requested.isLoading)
+            Text(ru ? 'Применение материала…' : 'Applying material…',
+              style: context.listCaptionStyle)
+          else if (fallback)
+            Text(ru ? 'Запрошенный материал недоступен, используется $actualLabel.'
+                : 'Requested material unavailable; using $actualLabel.',
+                style: context.listCaptionStyle),
+          CommonCard(
+            inert: true,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 12,
+              children: [
+                Builder(builder: (context) {
+                  final background = PaneBackdropEstimate.maybeOf(context) ??
+                      estimatedBackdrop(context.colorScheme,
+                        SurfaceLevel.card.colorOf(context.colorScheme));
+                  final foreground = readableForeground(scheme.onSurface, background);
+                  return Text(ru ? 'Соединения' : 'Connections',
+                    style: AppTextStyle.headline.of(context).copyWith(color: foreground));
+                }),
+                Builder(builder: (context) => Wrap(
+                  spacing: 16, runSpacing: 8,
                   children: [
-                    Text(ru ? 'Соединения' : 'Connections',
-                        style: AppTextStyle.headline.of(context)),
-                    Wrap(
-                      spacing: 16, runSpacing: 8,
-                      children: [
-                        for (final (label, tone) in [
-                          ('TCP', NetworkTone.tcp), ('UDP', NetworkTone.udp),
-                          ('DIRECT', NetworkTone.direct), ('REJECT', NetworkTone.reject),
-                          ('PROXY', NetworkTone.proxy), ('↓ 12 MB/s', NetworkTone.download),
-                          ('↑ 2 MB/s', NetworkTone.upload), ('0 B/s', NetworkTone.inactive),
-                        ]) Text(label, style: TextStyle(color: tone.of(context))),
-                      ],
-                    ),
-                    TonalButtonTheme(
-                      child: Row(
-                        spacing: 8,
-                        children: [
-                          IconButton(
-                            onPressed: () {},
-                            tooltip: ru ? 'Пример кнопки' : 'Example button',
-                            icon: const GlyphIcon(AppGlyphs.refresh),
-                          ),
-                          Expanded(child: Text(ru ? 'Наведите курсор для проверки свечения'
-                              : 'Hover over the button to check the glow')),
-                        ],
-                      ),
-                    ),
+                    for (final (name, tone) in [
+                      ('TCP', NetworkTone.tcp), ('UDP', NetworkTone.udp),
+                      ('ICMP', NetworkTone.icmp), ('DIRECT', NetworkTone.direct),
+                      ('REJECT', NetworkTone.reject), ('PROXY', NetworkTone.proxy),
+                      ('RULE', NetworkTone.rule), ('↓ 12 MB/s', NetworkTone.download),
+                      ('↑ 2 MB/s', NetworkTone.upload), ('0 B/s', NetworkTone.inactive),
+                    ]) Text(name, style: TextStyle(color: tone.of(context))),
                   ],
-                ),
-              ),
-            )),
+                )),
+              ],
+            ),
           ),
-          Text(ru ? 'Окно использует DWM; карточки и кнопки воспроизводят эффект внутри Flutter.'
-              : 'The window uses DWM; cards and buttons reproduce the effect within Flutter.',
-              style: context.listCaptionStyle),
+          Wrap(
+            spacing: 8, runSpacing: 8,
+            children: [
+              TonalButton(label: ru ? 'Пример кнопки' : 'Example button', onPressed: () {}),
+              TonalButtonGroup(children: [
+                IconButton(onPressed: () {}, tooltip: ru ? 'Обновить' : 'Refresh',
+                  icon: const GlyphIcon(AppGlyphs.refresh)),
+                IconButton(onPressed: null, tooltip: ru ? 'Недоступно' : 'Disabled',
+                  icon: const GlyphIcon(AppGlyphs.refresh)),
+              ]),
+            ],
+          ),
+          Text(ru ? 'Сравнение локальных материалов' : 'Local material comparison',
+            style: context.listCaptionStyle),
+          LayoutBuilder(builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final columns = width >= 600 ? 4 : width >= 280 ? 2 : 1;
+            final sampleWidth = (width - 8 * (columns - 1)) / columns;
+            final pane = settings.card ?? defaultPaneAppearance;
+            return Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final material in MaterialEffect.values)
+                SizedBox(width: sampleWidth, child: LocalMaterialPane(
+                  appearance: (effect: material, opacity: pane.opacity,
+                    blur: pane.blur, tint: pane.tint),
+                  color: SurfaceLevel.card.colorOf(scheme),
+                  shape: AppShape.md,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Builder(builder: (context) {
+                      final background = PaneBackdropEstimate.maybeOf(context)!;
+                      final foreground = readableForeground(scheme.onSurface, background);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 6,
+                        children: [
+                          Text(label(material), style: TextStyle(color: foreground)),
+                          Text('TCP / UDP', style: TextStyle(color: NetworkTone.tcp.on(background))),
+                          Text('DIRECT', style: TextStyle(color: NetworkTone.direct.on(background))),
+                        ],
+                      );
+                    }),
+                  ),
+                )),
+            ]);
+          }),
+          Text(ru
+              ? 'Окно использует DWM. Локальные образцы — имитация Flutter; контраст рассчитан по цвету темы, не по пикселям рабочего стола.'
+              : 'The window uses DWM. Local samples are Flutter approximations; contrast is estimated from theme colors, not measured desktop pixels.',
+            style: context.listCaptionStyle),
         ],
       ),
     );

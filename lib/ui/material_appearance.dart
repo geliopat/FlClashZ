@@ -118,6 +118,39 @@ class MaterialAppearanceTheme extends ThemeExtension<MaterialAppearanceTheme> {
   int get hashCode => settings.hashCode;
 }
 
+/// Use the same contrast calculation for semantic text and local material
+/// estimates. Native DWM pixels are not available to Flutter.
+double foregroundContrast(Color foreground, Color background) {
+  final a = Color.alphaBlend(foreground, background).computeLuminance();
+  final b = background.computeLuminance();
+  return a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
+}
+
+/// Preserve the preferred hue when possible, moving only toward the
+/// higher-contrast neutral endpoint. Intended for enabled text, not disabled
+/// controls whose dimming is a separate semantic state.
+Color readableForeground(Color preferred, Color background) {
+  if (foregroundContrast(preferred, background) >= 4.5) return preferred;
+  final target = foregroundContrast(Colors.white, background) >=
+      foregroundContrast(Colors.black, background) ? Colors.white : Colors.black;
+  var lo = 0.0;
+  var hi = 1.0;
+  for (var i = 0; i < 16; i++) {
+    final mid = (lo + hi) / 2;
+    if (foregroundContrast(Color.lerp(preferred, target, mid)!, background) >= 4.5) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  final result = Color.lerp(preferred, target, hi)!;
+  return foregroundContrast(result, background) >= 4.5 ? result : target;
+}
+
+Color estimatedBackdrop(ColorScheme scheme, Color surface) =>
+    Color.alphaBlend(surface, scheme.brightness == Brightness.dark
+        ? const Color(0xFF181818) : const Color(0xFFF5F5F5));
+
 /// Estimated effective pane color for semantic labels. DWM pixels are
 /// deliberately not represented as measured values.
 class PaneBackdropEstimate extends InheritedWidget {
@@ -147,10 +180,8 @@ class LocalMaterialPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final fill = paneColor(color, scheme, appearance);
-    final reference = scheme.brightness == Brightness.dark
-        ? const Color(0xFF181818) : const Color(0xFFF5F5F5);
     final behind = PaneBackdropEstimate.maybeOf(context) ??
-        Color.alphaBlend(scheme.surface, reference);
+        estimatedBackdrop(scheme, scheme.surface);
     final content = DecoratedBox(
       decoration: ShapeDecoration(color: fill, shape: shape),
       child: PaneBackdropEstimate(
