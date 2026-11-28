@@ -845,6 +845,41 @@ void main() {
       });
     });
 
+    test('backup manifest follows the snapshot rather than the live database', () async {
+      await seedDatabase();
+      final live = db.Database(NativeDatabase(File(databasePath)));
+      final snapshotDir = makeDir('snapshot');
+      final snapshotPath = join(snapshotDir.path, backupDatabaseName);
+      try {
+        await live.customStatement('VACUUM INTO ?', [snapshotPath]);
+        await live.delete(live.profiles).go();
+        await live.profilesDao.putAll([
+          const Profile(id: 99, autoUpdateDuration: Duration.zero).toCompanion(),
+        ]);
+        final manifest = await readBackupSnapshotEntries(snapshotPath);
+        expect(manifest.profileIds, [1]);
+        expect(manifest.entries, unorderedEquals([
+          BackupEntries.profile(1),
+          BackupEntries.script(2),
+          BackupEntries.provider(localProvider),
+        ]));
+        expect(await live.profilesDao.ids().get(), [99]);
+      } finally {
+        await live.close();
+      }
+    });
+
+    test('atomic copy preserves binary bytes and does not truncate on a missing source', () async {
+      final target = writeFile(join(home.path, 'target'), 'old');
+      final source = File(join(home.path, 'binary'))..writeAsBytesSync([0, 255, 10, 1]);
+      await source.copyAtomicallyTo(target.path);
+      expect(target.readAsBytesSync(), [0, 255, 10, 1]);
+      await source.delete();
+      await expectLater(source.copyAtomicallyTo(target.path), throwsA(isA<FileSystemException>()));
+      expect(target.readAsBytesSync(), [0, 255, 10, 1]);
+      expect(await source.exists(), isFalse);
+    });
+
     test('restoring returns the rows and stages the files', () async {
       await seedDatabase();
       writeFile(join(home.path, 'profiles', '1.yaml'), 'proxies: []');

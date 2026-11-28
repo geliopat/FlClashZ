@@ -56,6 +56,28 @@ extension FileExt on File {
     }
   }
 
+  /// Binary-safe replacement for restored YAML (including age-encrypted
+  /// files), scripts and local rule providers. A failed copy never truncates
+  /// the destination and never manufactures a missing source.
+  Future<void> copyAtomicallyTo(String targetPath) async {
+    final target = File(targetPath);
+    await target.parent.create(recursive: true);
+    final staging = await target.parent.createTemp('.flclash-copy-');
+    final temp = File('${staging.path}${Platform.pathSeparator}value');
+    try {
+      await copy(temp.path);
+      final handle = await temp.open(mode: FileMode.append);
+      try {
+        await handle.flush();
+      } finally {
+        await handle.close();
+      }
+      await temp._renameRetryingWhileHeldOpen(target.path);
+    } finally {
+      await staging.delete(recursive: true).then((_) {}, onError: (_) {});
+    }
+  }
+
   Future<void> _renameRetryingWhileHeldOpen(String target) async {
     for (var attempt = 1; ; attempt++) {
       try {

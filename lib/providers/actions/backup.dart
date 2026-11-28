@@ -8,6 +8,8 @@ typedef BackupFetch = Future<String?> Function(String downloadPath);
 
 @Riverpod(keepAlive: true)
 class BackupAction extends _$BackupAction {
+  bool _busy = false;
+
   @override
   void build() {}
 
@@ -56,13 +58,23 @@ class BackupAction extends _$BackupAction {
   }
 
   Future<bool> _withWorkDir(Future<bool> Function(String workDir) run) async {
-    final workDir = Directory(join(await appPath.tempPath, 'backup$uniqueId'));
-    await workDir.create(recursive: true);
+    if (_busy) throw StateError('A backup or restore is already in progress');
+    _busy = true;
+    Directory? workDir;
     try {
+      workDir = Directory(join(await appPath.tempPath, 'backup$uniqueId'));
+      await workDir.create(recursive: true);
       return await run(workDir.path);
     } finally {
-      await workDir.safeDelete(recursive: true);
-      await _discardLegacyStaging();
+      try {
+        await workDir?.safeDelete(recursive: true);
+        await _discardLegacyStaging();
+      } catch (error) {
+        commonPrint.log('Backup temporary cleanup failed: ${compactError(error)}',
+            logLevel: LogLevel.warning);
+      } finally {
+        _busy = false;
+      }
     }
   }
 
@@ -77,25 +89,17 @@ class BackupAction extends _$BackupAction {
   Future<String> _createArchive(String workDir) async {
     final databaseSnapshotPath = join(workDir, backupDatabaseName);
     await database.customStatement('VACUUM INTO ?', [databaseSnapshotPath]);
-    final (profileIds, scriptIds, providers) = await (
-      database.profilesDao.query().map((item) => item.id).get(),
-      database.scriptsDao.query().map((item) => item.id).get(),
-      database.clashProvidersDao.query().get(),
-    ).wait;
+    final manifest = await readBackupSnapshotEntries(databaseSnapshotPath);
     final configMap = ref.read(configProvider).toJson();
     configMap['version'] = await preferences.getVersion();
-    configMap[proxyChainsBackupKey] = await proxyChainsBackup(profileIds);
+    configMap[proxyChainsBackupKey] = await proxyChainsBackup(manifest.profileIds);
     final archivePath = join(workDir, 'backup.zip');
     await backupTask((
       archivePath: archivePath,
       configMap: configMap,
       databaseSnapshotPath: databaseSnapshotPath,
       homeDirPath: await appPath.homeDirPath,
-      entries: BackupEntries.of(
-        profileIds: profileIds,
-        scriptIds: scriptIds,
-        providers: providers,
-      ),
+      entries: manifest.entries,
     ));
     return archivePath;
   }
@@ -114,7 +118,7 @@ class BackupAction extends _$BackupAction {
         ref.read(appSettingProvider).restoreStrategy ==
         RestoreStrategy.override;
     final previousProviders = await database.clashProvidersDao.query().get();
-    final putBack = stagingDirPath == null
+    final fileChange = stagingDirPath == null
         ? null
         : await _copyStagedFiles(data, stagingDirPath);
     try {
@@ -131,9 +135,10 @@ class BackupAction extends _$BackupAction {
         isOverride: isOverride && data.includesTables,
       );
     } catch (_) {
-      await putBack?.call();
+      await fileChange?.rollback();
       rethrow;
     }
+    await fileChange?.discard();
     try {
       await restoreProxyChains(ref, configMap?[proxyChainsBackupKey], [
         for (final profile in data.profiles) profile.id,
@@ -163,24 +168,48 @@ class BackupAction extends _$BackupAction {
 
   /// The files go in before the rows that name them, so the returned callback
   /// is how a restore whose rows fail takes them back out.
-  Future<Future<void> Function()> _copyStagedFiles(
+  Future<({Future<void> Function() rollback, Future<void> Function() discard})> _copyStagedFiles(
     MigrationData data,
     String stagingDirPath,
   ) async {
     final homeDirPath = await appPath.homeDirPath;
-    final replacedDirPath = join(stagingDirPath, 'replaced');
+    // Never keep rollback material inside the untrusted extracted tree or
+    // the work directory that is always deleted by _withWorkDir.
+    final recovery = await Directory(await appPath.tempPath)
+        .createTemp('restore-rollback-');
     final copied = <String, bool>{};
+    Future<void> discard() async {
+      try {
+        await recovery.delete(recursive: true);
+      } catch (error) {
+        commonPrint.log('Restore rollback cleanup failed: ${compactError(error)}',
+            logLevel: LogLevel.warning);
+      }
+    }
+
     Future<void> putBack() async {
-      for (final MapEntry(key: entry, value: replaced) in copied.entries) {
+      var failures = 0;
+      for (final MapEntry(key: entry, value: replaced) in copied.entries.toList().reversed) {
         final target = BackupEntries.resolve(homeDirPath, entry);
-        if (replaced) {
-          await File(
-            BackupEntries.resolve(replacedDirPath, entry),
-          ).safeCopy(target);
-        } else {
-          await File(target).safeDelete();
+        try {
+          if (replaced) {
+            await File(BackupEntries.resolve(recovery.path, entry))
+                .copyAtomicallyTo(target);
+          } else {
+            await File(target).safeDelete();
+          }
+        } catch (_) {
+          failures++;
         }
       }
+      if (failures != 0) {
+        // Preserve recovery material for manual intervention and do not
+        // represent a partially rolled back operation as successful.
+        commonPrint.log('Restore rollback incomplete; recovery retained at ${recovery.path}',
+            logLevel: LogLevel.error);
+        throw StateError('Restore rollback incomplete ($failures files); recovery: ${recovery.path}');
+      }
+      await discard();
     }
 
     try {
@@ -192,16 +221,18 @@ class BackupAction extends _$BackupAction {
         final target = File(BackupEntries.resolve(homeDirPath, entry));
         final replaced = await target.exists();
         if (replaced) {
-          await target.safeCopy(BackupEntries.resolve(replacedDirPath, entry));
+          await target.copyAtomicallyTo(BackupEntries.resolve(recovery.path, entry));
         }
+        // Register only a completed atomic replacement; failed writes leave
+        // the old destination intact.
+        await staged.copyAtomicallyTo(target.path);
         copied[entry] = replaced;
-        await staged.safeCopy(target.path);
       }
     } catch (_) {
       await putBack();
       rethrow;
     }
-    return putBack;
+    return (rollback: putBack, discard: discard);
   }
 
   Future<void> _clearReplacedProviderCaches(

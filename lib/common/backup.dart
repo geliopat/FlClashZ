@@ -69,6 +69,40 @@ typedef BackupArchiveRequest = ({
 
 typedef RestoreArchiveRequest = ({String archivePath, String stagingDirPath});
 
+typedef BackupSnapshotEntries = ({
+  List<int> profileIds,
+  List<String> entries,
+});
+
+/// Derive the manifest from the immutable VACUUM INTO snapshot, not from
+/// live DAOs that may already describe a different set of profiles.
+Future<BackupSnapshotEntries> readBackupSnapshotEntries(String snapshotPath) async {
+  final snapshot = Database(
+    driftDatabase(
+      name: basenameWithoutExtension(snapshotPath),
+      native: DriftNativeOptions(
+        databaseDirectory: () async => File(snapshotPath).parent,
+        tempDirectoryPath: () async => File(snapshotPath).parent.path,
+      ),
+    ),
+  );
+  try {
+    final profileIds = await snapshot.profilesDao.ids().get();
+    final scriptIds = await snapshot.scriptsDao.ids().get();
+    final providers = await snapshot.clashProvidersDao.query().get();
+    return (
+      profileIds: profileIds,
+      entries: BackupEntries.of(
+        profileIds: profileIds,
+        scriptIds: scriptIds,
+        providers: providers,
+      ),
+    );
+  } finally {
+    await snapshot.close();
+  }
+}
+
 Future<void> backupTask(BackupArchiveRequest request) {
   return compute(_backupTask, request);
 }

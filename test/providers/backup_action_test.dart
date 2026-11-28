@@ -435,6 +435,34 @@ void main() {
       expect(added.existsSync(), isFalse);
     });
 
+    test('a failed file replacement rolls back earlier replacements', () async {
+      final existing = File(await appPath.getProfilePath('51'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('original');
+      final blockedPath = await appPath.getProfilePath('52');
+      final blocked = Directory(blockedPath)..createSync(recursive: true);
+      addTearDown(() => blocked.deleteSync(recursive: true));
+      File(join(blocked.path, 'occupied')).writeAsStringSync('keep');
+      final staging = Directory.systemTemp.createTempSync('flclash-staging-');
+      addTearDown(() => staging.deleteSync(recursive: true));
+      for (final id in [51, 52]) {
+        File(BackupEntries.resolve(staging.path, BackupEntries.profile(id)))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('restored');
+      }
+      await expectLater(
+        actionOf(buildContainer()).applyRestore(
+          MigrationData(profiles: [_profile(51, 'One'), _profile(52, 'Two')]),
+          RestoreOption.onlyProfiles,
+          stagingDirPath: staging.path,
+        ),
+        throwsA(anything),
+      );
+      expect(existing.readAsStringSync(), 'original');
+      expect(File(join(blocked.path, 'occupied')).readAsStringSync(), 'keep');
+      expect(await testDatabase.profilesDao.ids().get(), isEmpty);
+    });
+
     test('a backup carrying only proxy groups still writes them', () async {
       await testDatabase.profiles.put(
         const Profile(id: 7, autoUpdateDuration: Duration.zero).toCompanion(),
