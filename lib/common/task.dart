@@ -324,10 +324,24 @@ Future<RealProfile> _makeRealProfileTask(MakeRealProfileState data) async {
   final isEnableDns = rawDns['enable'] == true;
   const systemDns = 'system://';
   if (!isEnableDns) {
-    rawDns = mergeDnsOverride(
-      rawDns,
-      baselineDns.overrideJson(baselineDnsOverrideKeys),
-    );
+    final baseline = baselineDns.overrideJson(baselineDnsOverrideKeys);
+    if (Platform.isWindows) {
+      // The DNS service is needed for interception, but explicitly supplied
+      // resolver URLs and mode must not be replaced by the app baseline.
+      final nameservers = rawDns['nameserver'];
+      final mode = rawDns['enhanced-mode'];
+      rawDns = {
+        ...baseline,
+        ...rawDns,
+        'enable': true,
+        if (nameservers is! List || nameservers.isEmpty)
+          'nameserver': baseline['nameserver'],
+        if (mode is! String || mode.isEmpty)
+          'enhanced-mode': baseline['enhanced-mode'],
+      };
+    } else {
+      rawDns = mergeDnsOverride(rawDns, baseline);
+    }
   }
   rawDns = mergeDnsOverride(
     rawDns,

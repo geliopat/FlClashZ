@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -90,6 +92,37 @@ void main() {
       });
     },
   );
+
+  test('Windows DNS protection preserves supplied resolvers and mode', () async {
+    final dns = await _dnsOf(
+      rawConfig: {
+        'dns': {
+          'enable': false,
+          'enhanced-mode': 'redir-host',
+          'nameserver': ['https://dns.example/dns-query#DIRECT'],
+          'respect-rules': true,
+          'fallback': [],
+        },
+      },
+      keys: {},
+    );
+    expect(dns['enable'], isTrue);
+    expect(dns['enhanced-mode'], Platform.isWindows ? 'redir-host' : 'fake-ip');
+    expect(dns['nameserver'], Platform.isWindows
+        ? ['https://dns.example/dns-query#DIRECT']
+        : baselineDns.nameserver);
+    expect(dns['respect-rules'], isTrue);
+    expect(dns['fallback'], isEmpty);
+  });
+
+  test('missing or empty resolvers get a usable Windows DNS baseline', () async {
+    final dns = await _dnsOf(
+      rawConfig: {'dns': {'enable': false, 'nameserver': []}},
+      keys: {},
+    );
+    expect(dns['enable'], isTrue);
+    expect(dns['nameserver'], baselineDns.nameserver);
+  });
 
   test('a key picked without a value writes nothing', () async {
     final dns = await _dnsOf(
