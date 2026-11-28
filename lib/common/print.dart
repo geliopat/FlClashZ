@@ -7,7 +7,6 @@ import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/state.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
 
 String compactError(Object error) {
   if (error is DioException) {

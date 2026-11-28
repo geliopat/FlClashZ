@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:fl_clash/common/app_data.dart';
 import 'package:fl_clash/common/boot_guard.dart';
-import 'package:fl_clash/common/file_logger.dart';
 import 'package:fl_clash/common/recovery_journal.dart';
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/common/system_dns.dart';

@@ -48,7 +48,7 @@ class FileLogger {
   int _size = 0;
 
   late final _dayPattern = RegExp(
-    (prefix == appName ? r'^FlClash[ZX]' : '^'+RegExp.escape(prefix)) +
+    (prefix == appName ? r'^FlClash[ZX]' : '^${RegExp.escape(prefix)}') +
     r'_(\d{4}-\d{2}-\d{2})(?:_\d+)?\.log$',
   );
 

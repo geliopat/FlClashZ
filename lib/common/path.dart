@@ -23,7 +23,7 @@ class AppPath {
     // Consumers can still observe a failure via .future; the independent
     // listener prevents a failure before their first await from escaping.
     unawaited(pending.future.then<void>((_) {},
-        onError: (Object _, StackTrace __) {}));
+        onError: (Object _, StackTrace _) {}));
     unawaited(Future<Directory>.sync(cacheDirectory).then<void>(
       pending.complete,
       onError: (Object error, StackTrace stack) {
