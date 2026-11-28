@@ -625,6 +625,8 @@ class ZapretController extends Notifier<ZapretState> {
   }
   var _refreshing = false;
   int _statusRevision = 0;
+  int _watchdogRevision = 0;
+  bool _watchdogChanging = false;
   bool _cancelTrial = false;
   bool _lifecycleStopping = false;
   int _lifecycleRevision = 0;
@@ -858,6 +860,7 @@ class ZapretController extends Notifier<ZapretState> {
   /// strategy is persisted independently of the running profile.
   Future<void> loadStrategies() async {
     if (!Platform.isWindows || !ref.mounted) return;
+    final watchdogRevision = _watchdogRevision;
     try {
       final strategies = await _client.zapretStrategies();
       final preferences = await SharedPreferences.getInstance();
@@ -878,7 +881,8 @@ class ZapretController extends Notifier<ZapretState> {
         strategies: strategies,
         selectedStrategyId: selectedId,
         debugLogs: preferences.getBool(_debugPreferenceKey) ?? false,
-        watchdog: preferences.getBool('zapret.watchdog') ?? true,
+        watchdog: !_watchdogChanging && watchdogRevision == _watchdogRevision
+            ? preferences.getBool('zapret.watchdog') ?? true : state.watchdog,
         trials: _restoreTrials(preferences, strategies.map((item) => item.id).toSet()),
         clearError: strategies.isNotEmpty,
       );
@@ -1328,11 +1332,52 @@ class ZapretController extends Notifier<ZapretState> {
   }
 
   Future<void> setWatchdog(bool value) async {
-    if (state.busy || _launchBlocked) return;
-    if (state.available) await _client.setZapretWatchdog(value);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('zapret.watchdog', value);
-    if (ref.mounted) state = state.copyWith(watchdog: value);
+    if (state.busy || _watchdogChanging || _launchBlocked || value == state.watchdog) return;
+    _watchdogChanging = true;
+    ++_watchdogRevision;
+    ++_statusRevision;
+    final lifecycle = _lifecycleRevision;
+    final previous = state.watchdog;
+    var helperAccepted = false;
+    state = state.copyWith(busy: true, clearError: true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_exiting || lifecycle != _lifecycleRevision || _launchBlocked) return;
+      if (state.available) {
+        await _client.setZapretWatchdog(value);
+        helperAccepted = true;
+      }
+      if (!await prefs.setBool('zapret.watchdog', value)) {
+        throw StateError('Zapret watchdog preference write rejected');
+      }
+      if (ref.mounted) state = state.copyWith(watchdog: value);
+    } catch (error) {
+      var restored = !helperAccepted;
+      if (helperAccepted && !_exiting &&
+          lifecycle == _lifecycleRevision && !_launchBlocked) {
+        try {
+          await _client.setZapretWatchdog(previous);
+          restored = true;
+        } catch (rollbackError) {
+          commonPrint.log('Zapret watchdog rollback failed: $rollbackError',
+              logLevel: LogLevel.warning);
+        }
+      }
+      if (ref.mounted) {
+        // If compensation is unconfirmed, retain the last acknowledged
+        // runtime value and surface the persistence error rather than lie.
+        state = state.copyWith(
+          watchdog: restored ? previous : value,
+          error: _errorMessage(error),
+        );
+      }
+      commonPrint.log('Zapret watchdog setting not saved: $error',
+          logLevel: LogLevel.warning);
+    } finally {
+      ++_watchdogRevision;
+      _watchdogChanging = false;
+      if (ref.mounted) state = state.copyWith(busy: false);
+    }
   }
 
   Future<void> setAutoFallback(bool value) async {

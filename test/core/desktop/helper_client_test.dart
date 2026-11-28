@@ -136,7 +136,10 @@ void main() {
     final adapter = _ResponseAdapter((options) {
       commands.add(int.parse(options.headers['x-zapret-command'].toString()));
       owners.add(options.headers['x-zapret-owner-pid'].toString());
-      if (options.path.endsWith('/watchdog')) return _jsonResponse(<String, Object?>{});
+      if (options.path.endsWith('/watchdog')) {
+        return ResponseBody.fromString('false', 200,
+          headers: {Headers.contentTypeHeader: [Headers.jsonContentType]});
+      }
       return _jsonResponse({
         'running': false,
         'winDivertFilters': <String>[],
@@ -152,6 +155,24 @@ void main() {
     expect(commands, hasLength(3));
     expect(commands[1], greaterThan(commands[0]));
     expect(commands[2], greaterThan(commands[1]));
+  });
+
+  test('Zapret watchdog requires the exact acknowledged boolean', () async {
+    for (final body in ['true', '{}', 'null']) {
+      final client = _client(_ResponseAdapter((options) {
+        expect(options.method, 'PUT');
+        expect(options.path, endsWith('/zapret/watchdog'));
+        expect(options.data, {'enabled': false});
+        return ResponseBody.fromString(body, 200,
+          headers: {Headers.contentTypeHeader: [Headers.jsonContentType]});
+      }));
+      await expectLater(client.setZapretWatchdog(false),
+        throwsA(isA<HelperException>().having((e) => e.code, 'code', 'invalidResponse')));
+    }
+    final client = _client(_ResponseAdapter((_) =>
+      ResponseBody.fromString('true', 200,
+        headers: {Headers.contentTypeHeader: [Headers.jsonContentType]})));
+    await client.setZapretWatchdog(true);
   });
 
   test('Zapret refuses a running status without a known strategy engine', () async {

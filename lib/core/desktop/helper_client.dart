@@ -793,9 +793,19 @@ final class HelperClient {
   };
 
   Future<void> setZapretWatchdog(bool enabled) async {
-    await _dio.put<Object?>('$baseUrl/zapret/watchdog',
-      data: {'enabled': enabled}, options: _options(ResponseType.json,
-        receiveTimeout: const Duration(seconds: 5)).copyWith(headers: _zapretHeaders()));
+    try {
+      final response = await _dio.put<Object?>('$baseUrl/zapret/watchdog',
+        data: {'enabled': enabled}, options: _options(ResponseType.json,
+          receiveTimeout: const Duration(seconds: 5)).copyWith(headers: _zapretHeaders()));
+      // The Helper endpoint returns the exact acknowledged boolean.
+      if (response.statusCode != HttpStatus.ok ||
+          response.data is! bool || response.data != enabled) {
+        throw const HelperException(code: 'invalidResponse',
+          message: 'Helper did not confirm the requested Zapret watchdog state');
+      }
+    } on DioException catch (error) {
+      throw _mapZapretDioException(error, operation: 'watchdog');
+    }
   }
 
   Future<HelperZapretStatus> startZapret({required String strategyId, required String mode, bool debug = false, bool? watchdog, Map<String, List<String>>? infrastructure, String? reason}) =>
