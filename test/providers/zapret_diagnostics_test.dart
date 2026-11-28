@@ -3,8 +3,33 @@ import 'package:fl_clash/models/core.dart';
 import 'package:fl_clash/providers/zapret_diagnostics.dart';
 import 'package:fl_clash/providers/zapret.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:riverpod/riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('late interval load cannot override a newer explicit value', () async {
+    SharedPreferences.setMockInitialValues({'zapret.httpsInterval': 120});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(zapretProbeIntervalProvider.notifier);
+    final first = controller.update(30);
+    final last = controller.update(0);
+    await Future.wait([first, last]);
+    expect(container.read(zapretProbeIntervalProvider), 0);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt('zapret.httpsInterval'), 0);
+  });
+
+  test('cleared diagnostic state never presents a previous success', () {
+    const state = ZapretDiagnosticsState({});
+    for (final target in ZapretProbeTarget.values) {
+      expect(state.resultOf(target).accepted, isFalse);
+      expect(state.resultOf(target).status, ZapretProbeStatus.checking);
+    }
+  });
+
   test('restricted Voice API counts as DIRECT HTTPS reachability only', () {
     const item = ServiceCheckItem(status: 'restricted', delay: 348, chains: ['DIRECT']);
     final voice = classifyZapretService(ZapretProbeTarget.discordVoice, item);

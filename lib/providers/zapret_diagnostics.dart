@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/core.dart';
+import 'package:fl_clash/providers/config.dart';
+import 'package:fl_clash/providers/network_probe_settings.dart';
 import 'package:fl_clash/providers/app.dart';
 import 'package:fl_clash/providers/zapret.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,21 +17,38 @@ final zapretProbeIntervalProvider = NotifierProvider<ZapretProbeInterval, int>(Z
 class ZapretProbeInterval extends Notifier<int> {
   static const values = [0, 5, 10, 15, 30, 60, 120];
   static const _key = 'zapret.httpsInterval';
+  int _revision = 0;
+  Future<void> _writes = Future.value();
+
   @override
   int build() {
+    final revision = _revision;
     scheduleMicrotask(() async {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getInt(_key);
-      if (ref.mounted && values.contains(saved)) state = saved!;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final saved = prefs.getInt(_key);
+        if (ref.mounted && revision == _revision && values.contains(saved)) {
+          state = saved!;
+        }
+      } catch (_) {
+        // Unavailable preferences must not disable the current probes.
+      }
     });
     return 15;
   }
 
   Future<void> update(int value) async {
     if (!values.contains(value)) return;
+    _revision++;
     state = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_key, value);
+    final write = _writes.catchError((Object _) {}).then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setInt(_key, value)) {
+        throw StateError('Unable to save Zapret probe interval');
+      }
+    });
+    _writes = write;
+    await write;
   }
 }
 
@@ -211,6 +230,25 @@ ZapretProbeResult classifyZapretService(ZapretProbeTarget target, ServiceCheckIt
 class ZapretDiagnosticsController extends Notifier<ZapretDiagnosticsState> {
   Timer? _poller;
   var _refreshing = false;
+  var _refreshPending = false;
+  int _generation = 0;
+
+  void _invalidate() {
+    _generation++;
+    state = const ZapretDiagnosticsState({});
+    if (ref.read(coreStatusProvider) == CoreStatus.connected &&
+        !ref.read(zapretControllerProvider).busy) {
+      if (_refreshing) {
+        _refreshPending = true;
+      } else {
+        scheduleMicrotask(() {
+          if (ref.mounted) unawaited(refresh());
+        });
+      }
+    } else {
+      _refreshPending = false;
+    }
+  }
 
   @override
   ZapretDiagnosticsState build() {
@@ -229,11 +267,20 @@ class ZapretDiagnosticsController extends Notifier<ZapretDiagnosticsState> {
         configure(value);
         if (value > 0) unawaited(refresh());
       });
-      ref.listen(coreStatusProvider, (_, value) {
-        if (value == CoreStatus.connected) unawaited(refresh());
+      ref.listen(coreStatusProvider, (before, after) {
+        if (before != after) _invalidate();
       });
-      ref.listen(zapretControllerProvider.select((s) => (s.running, s.pid, s.activeMode, s.busy)), (before, after) {
-        if (!after.$4 && before != after) unawaited(refresh());
+      ref.listen(currentProfileIdProvider, (before, after) {
+        if (before != after) _invalidate();
+      });
+      ref.listen(networkProbeSettingsProvider.select((s) => s.serviceTimeout),
+          (before, after) {
+        if (before != after) _invalidate();
+      });
+      ref.listen(zapretControllerProvider.select((s) => (
+        s.running, s.pid, s.activeMode, s.activeStrategyId, s.busy,
+      )), (before, after) {
+        if (before != after) _invalidate();
       });
       scheduleMicrotask(() {
         if (ref.mounted) unawaited(refresh());
@@ -246,18 +293,27 @@ class ZapretDiagnosticsController extends Notifier<ZapretDiagnosticsState> {
   }
 
   Future<void> refresh() async {
-    if (!Platform.isWindows || !ref.mounted || _refreshing || ref.read(zapretControllerProvider).busy) return;
+    if (!Platform.isWindows || !ref.mounted || _refreshing ||
+        ref.read(coreStatusProvider) != CoreStatus.connected ||
+        ref.read(zapretControllerProvider).busy) return;
     _refreshing = true;
+    final generation = _generation;
     try {
-      final before = ref.read(zapretControllerProvider);
-      final results = await measureZapretTargets(ref, ZapretProbeTarget.values);
-      if (!ref.mounted) return;
-      final after = ref.read(zapretControllerProvider);
-      if (after.busy || after.pid != before.pid) return;
+      final timeout = ref.read(networkProbeSettingsProvider).serviceTimeout * 1000;
+      final results = await measureZapretTargets(
+        ref, ZapretProbeTarget.values, timeoutMs: timeout,
+      );
+      if (!ref.mounted || generation != _generation ||
+          ref.read(coreStatusProvider) != CoreStatus.connected ||
+          ref.read(zapretControllerProvider).busy) return;
       state = ZapretDiagnosticsState(results);
       unawaited(ref.read(zapretControllerProvider.notifier).checkFallback(results));
     } finally {
       _refreshing = false;
+      if (_refreshPending) {
+        _refreshPending = false;
+        if (ref.mounted) unawaited(refresh());
+      }
     }
   }
 }
