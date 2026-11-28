@@ -40,7 +40,7 @@ class AdvancedConfigView extends ConsumerWidget {
           widget: SnifferView(activeId, preserveEmpty: true),
         ),
       if (system.isWindows && activeId != null) ...[
-        ListItem.open(title: const Text('NTP'), widget: NtpView(activeId)),
+        ListItem.open(title: const Text('NTP'), widget: NtpView(activeId, preserveEmpty: true)),
         ListItem.open(title: Text(Localizations.localeOf(context).languageCode == 'ru'
             ? 'Дополнительные параметры Mihomo' : 'Additional Mihomo settings'),
           widget: AdditionalMihomoSettingsView(profileId: activeId)),

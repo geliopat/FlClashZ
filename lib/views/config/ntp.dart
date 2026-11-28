@@ -35,13 +35,14 @@ ProfileOverrides _setProfileNtp(ProfileOverrides overrides, _NtpState state) =>
     overrides.copyWith(ntp: state.model, ntpOverrideKeys: state.keys);
 
 class NtpView extends OverrideView<NtpOverrideKey, Ntp> {
-  NtpView(int profileId, {super.key})
+  NtpView(int profileId, {super.key, bool preserveEmpty = false})
     : super(
         spec: _NtpOverrideSpec(
           ProfileOverrideTarget(
             profileId,
             get: _profileNtp,
             set: _setProfileNtp,
+            preserveEmpty: preserveEmpty,
             issues: customProfileIssuesProvider(
               profileId,
             ).select((state) => state.ntp),
@@ -68,7 +69,7 @@ class _NtpOverrideSpec extends OverrideSpec<NtpOverrideKey, Ntp>
 
   @override
   String overrideYaml(Ntp model, Set<NtpOverrideKey> keys) =>
-      model.overrideYaml(keys);
+      model.overrideYaml(keys, keepEmpty: !target.emptyCancels);
 
   @override
   _NtpState applyOverrideYaml(Ntp model, String content) {

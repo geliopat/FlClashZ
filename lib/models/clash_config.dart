@@ -1531,11 +1531,12 @@ Set<NtpOverrideKey> _ntpOverrideKeysFromJson(List<Object?> json) => {
 };
 
 extension NtpOverrideExt on Ntp {
-  Map<String, Object?> overrideJson(Set<NtpOverrideKey> keys) =>
-      _overrideJson(toJson(), NtpOverrideKey.values, keys);
+  Map<String, Object?> overrideJson(Set<NtpOverrideKey> keys, {bool keepEmpty = false}) =>
+      _overrideJson(toJson(), NtpOverrideKey.values, keys,
+          keepEmpty: keepEmpty ? const {NtpOverrideKey.dialerProxy} : const {});
 
-  String overrideYaml(Set<NtpOverrideKey> keys) =>
-      yaml.encode(overrideJson(keys));
+  String overrideYaml(Set<NtpOverrideKey> keys, {bool keepEmpty = false}) =>
+      yaml.encode(overrideJson(keys, keepEmpty: keepEmpty));
 
   ({Ntp ntp, Set<NtpOverrideKey> keys}) applyOverrideYaml(String content) {
     final json = toJson();

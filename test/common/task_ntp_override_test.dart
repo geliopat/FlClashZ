@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -19,6 +21,7 @@ const _overrides = ProfileOverrides(
 Future<YamlMap?> _ntpOf({
   required Map<String, dynamic> rawConfig,
   ProfileOverrides overrides = _overrides,
+  bool keepEmpty = false,
 }) async {
   final result = await makeRealProfileTask(
     MakeRealProfileState(
@@ -27,6 +30,7 @@ Future<YamlMap?> _ntpOf({
       rawConfig: rawConfig,
       realPatchConfig: const PatchClashConfig(),
       overrides: overrides,
+      keepEmptyDnsOverrides: keepEmpty,
       appendSystemDns: false,
       proxyGroups: const [],
       rules: const [],
@@ -57,6 +61,20 @@ void main() {
 
     expect(ntp!['server'], 'ntp.aliyun.com');
     expect(ntp.containsKey('interval'), isFalse);
+  });
+
+  test('Windows can explicitly clear an inherited NTP dialer', () async {
+    final ntp = await _ntpOf(
+      rawConfig: {'ntp': {..._profileNtp, 'dialer-proxy': 'Cascade'}},
+      overrides: const ProfileOverrides(
+        ntp: Ntp(dialerProxy: ''),
+        ntpOverrideKeys: {NtpOverrideKey.dialerProxy},
+      ),
+      keepEmpty: true,
+    );
+    expect(ntp!['dialer-proxy'], Platform.isWindows ? '' : 'Cascade');
+    expect(ntp['server'], _profileNtp['server']);
+    expect(ntp['enable'], true);
   });
 
   test('writes nothing for a profile without NTP', () async {

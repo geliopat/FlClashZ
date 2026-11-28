@@ -351,7 +351,10 @@ Future<RealProfile> _makeRealProfileTask(MakeRealProfileState data) async {
     ),
   );
   rawConfig['dns'] = rawDns;
-  final ntpOverride = overrides.ntp.overrideJson(overrides.ntpOverrideKeys);
+  final ntpOverride = overrides.ntp.overrideJson(
+    overrides.ntpOverrideKeys,
+    keepEmpty: Platform.isWindows && data.keepEmptyDnsOverrides,
+  );
   if (ntpOverride.isNotEmpty) {
     final rawNtp = rawConfig['ntp'] is Map
         ? Map<String, dynamic>.from(rawConfig['ntp'] as Map)
