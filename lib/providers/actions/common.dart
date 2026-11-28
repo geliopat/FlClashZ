@@ -241,7 +241,7 @@ class CommonAction extends _$CommonAction {
   }
 
   Future<bool> _checkCoreUpdate({required bool isUser}) async {
-    final ru = currentAppLocalizations.localeName.startsWith('ru');
+    final ru = Intl.getCurrentLocale().split(RegExp(r'[-_]')).first == 'ru';
     String tr(String russian, String english) => ru ? russian : english;
     final title = tr('Обновление ядра', 'Core update');
     final updater = CoreReleaseUpdater(
