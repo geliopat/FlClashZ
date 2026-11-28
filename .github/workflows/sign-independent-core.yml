@@ -1,13 +1,11 @@
 name: Sign and publish independent FlClashZ core
 on:
-  push:
-    branches: [fix/zapret2-stability]
-    paths:
-      - '.github/workflows/sign-independent-core.yml'
-      - '.github/scripts/sign-core-manifest.go'
-  schedule:
-    - cron: '8,38 * * * *'
   workflow_dispatch:
+    inputs:
+      source_run:
+        description: Successful reviewed core release request run ID
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,11 +18,11 @@ env:
   GO_VERSION: '1.27.1'
   GOWORK: 'off'
   GO111MODULE: 'off'
+  APPROVED_REQUEST_SHA: 'e6487eda493db43a3fa07eb4d1c7453ad6599185'
 
 jobs:
   release:
-    # Temporary release freeze: remove only after the core refactor and independent audit.
-    if: github.repository == 'geliopat/FlClashZ' && github.ref == 'refs/heads/fix/zapret2-stability' && false
+    if: github.repository == 'geliopat/FlClashZ' && github.ref == 'refs/heads/fix/zapret2-stability'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -32,10 +30,11 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Locate latest successful trusted core release request
+      - name: Verify explicitly selected reviewed core release request
         id: request
         env:
           GH_TOKEN: ${{ secrets.CORE_RELEASE_TOKEN }}
+          REQUEST_RUN: ${{ inputs.source_run }}
         shell: bash
         run: |
           set -euo pipefail
@@ -45,47 +44,27 @@ jobs:
             exit 0
           fi
           tmp=$(mktemp -d)
-          artifact_name=core-release-request
-          # All trigger types use the same release-request discovery.
-          # The one-time z.1 bootstrap is complete. Never sign a candidate
-          # validation artifact merely because this workflow was edited.
-          for workflow in flclashz-core-auto.yml flclashz-core-release.yml; do
-            gh api "repos/$SOURCE_REPO/actions/workflows/$workflow/runs?branch=FlClashZ&status=success&per_page=30" |
-              jq -r --arg workflow "$workflow" '.workflow_runs[] | select(.conclusion == "success" and .head_branch == "FlClashZ" and .head_repository.full_name == "geliopat/Clash.Meta" and (.event == "schedule" or .event == "workflow_dispatch" or ($workflow == "flclashz-core-auto.yml" and (.event == "push" or .event == "workflow_run")))) | .id' > "$tmp/$workflow"
-          done
-          sort -urn "$tmp/"*.yml > "$tmp/runs"
-          run_id=""
-          artifact_id=""
-          while IFS= read -r candidate; do
-            [[ "$candidate" =~ ^[0-9]+$ ]]
-            response=$(gh api "repos/$SOURCE_REPO/actions/runs/$candidate/artifacts?per_page=100")
-            matches=$(jq --arg name "$artifact_name" '[.artifacts[] | select(.name == $name and .expired == false)]' <<< "$response")
-            if [[ "$(jq length <<< "$matches")" == 0 ]]; then
-              continue
-            fi
-            [[ "$(jq length <<< "$matches")" == 1 ]]
-            # An automatic build must have passed every required job, not
-            # only uploaded a binary before another parallel test failed.
-            if grep -Fxq "$candidate" "$tmp/flclashz-core-auto.yml"; then
-              gh api "repos/$SOURCE_REPO/actions/runs/$candidate/jobs?per_page=100" |
-                jq -e '[.jobs[] | select(.conclusion == "success") | .name] | sort == ["prepare","race","windows"]' >/dev/null
-            else
-              gh api "repos/$SOURCE_REPO/actions/runs/$candidate/jobs?per_page=100" |
-                jq -e '[.jobs[] | select(.conclusion == "success") | .name] | sort == ["windows"]' >/dev/null
-            fi
-            artifact_id=$(jq -er '.[0].id' <<< "$matches")
-            size=$(jq -er '.[0].size_in_bytes' <<< "$matches")
-            digest=$(jq -er '.[0].digest' <<< "$matches")
-            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-            [[ "$artifact_id" =~ ^[0-9]+$ && "$size" =~ ^[0-9]+$ ]]
-            (( size > 0 && size <= 300*1024*1024 ))
-            run_id=$candidate
-            break
-          done < "$tmp/runs"
-          if [[ -z "$run_id" ]]; then
-            echo "No successful core release request." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
+          run_id="$REQUEST_RUN"
+          [[ "$run_id" =~ ^[1-9][0-9]*$ ]]
+          run=$(gh api "repos/$SOURCE_REPO/actions/runs/$run_id")
+          jq -e --arg sha "$APPROVED_REQUEST_SHA" --argjson id "$run_id" '
+            .id == $id and .head_sha == $sha and .head_branch == "FlClashZ"
+            and .head_repository.full_name == "geliopat/Clash.Meta"
+            and .event == "workflow_dispatch"
+            and .path == ".github/workflows/flclashz-core-auto.yml"
+            and .status == "completed" and .conclusion == "success"
+          ' <<< "$run" >/dev/null
+          gh api "repos/$SOURCE_REPO/actions/runs/$run_id/jobs?per_page=100" |
+            jq -e '.total_count == 3 and ([.jobs[] | select(.conclusion == "success") | .name] | sort == ["prepare","race","windows"])' >/dev/null
+          response=$(gh api "repos/$SOURCE_REPO/actions/runs/$run_id/artifacts?per_page=100")
+          matches=$(jq '[.artifacts[] | select(.name == "core-release-request" and .expired == false)]' <<< "$response")
+          [[ "$(jq length <<< "$matches")" == 1 ]]
+          artifact_id=$(jq -er '.[0].id' <<< "$matches")
+          size=$(jq -er '.[0].size_in_bytes' <<< "$matches")
+          digest=$(jq -er '.[0].digest' <<< "$matches")
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$artifact_id" =~ ^[0-9]+$ && "$size" =~ ^[0-9]+$ ]]
+          (( size > 0 && size <= 300*1024*1024 ))
           # Download the exact artifact ID, not a mutable release URL.
           mkdir -p "$RUNNER_TEMP/core-request"
           gh api "repos/$SOURCE_REPO/actions/artifacts/$artifact_id/zip" > "$tmp/core.zip"
@@ -118,7 +97,7 @@ jobs:
           engine=$(jq -er '.engineRevision | strings' "$info")
           host=$(jq -er '.hostRevision | strings' "$info")
           [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-z\.[1-9][0-9]*$ ]]
-          [[ "$engine" =~ ^[0-9a-f]{40}$ && "$host" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$version" == "v1.19.34-z.3" && "$engine" == "d6f29e555e63906208d9b5cba098af802126ba24" && "$host" == "03c93c9adf1d847be367f1ecd1f3381d6bb25183" ]]
           jq -e --arg v "$version" '.product == "FlClashZ-core" and .mihomoVersion == ($v | split("-")[0]) and .ipcRevision == 1 and .os == "windows" and .arch == "amd64"' "$info" >/dev/null
           [[ "$(gh api "repos/$SOURCE_REPO/commits/$engine" --jq .sha)" == "$engine" ]]
           [[ "$(gh api "repos/geliopat/FlClashZ/commits/$host" --jq .sha)" == "$host" ]]
