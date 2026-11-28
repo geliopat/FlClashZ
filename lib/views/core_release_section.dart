@@ -55,26 +55,22 @@ class _CoreReleaseSectionState extends ConsumerState<CoreReleaseSection> {
     }
   }
 
-  Future<void> _check() => _run(() async {
-    final action = ref.read(coreActionProvider.notifier);
-    final updater = _updater();
-    final token = _downloadCancel = CancelToken();
-    final offer = await updater.check(cancelToken: token);
+  Future<bool> _approve(CoreReleaseManifest manifest) async {
     final journal = await coreReleaseSelection.read();
-    if (!mounted) return;
+    if (!mounted) return false;
     final bundled = _bundledVersion.startsWith('v') ? _bundledVersion : 'v$_bundledVersion';
     final minimum = CoreReleaseVersion.parse('$bundled-z.1');
-    final version = offer.manifest.version;
+    final version = manifest.version;
     // The first published package predates the new adapter RPCs. Its
     // engine is identical, but installing it would remove client features.
     if (version.compareTo(CoreReleaseVersion.parse(minimumIndependentCoreVersion)) < 0) {
       setState(() => _status = _tr('Для этой версии клиента требуется новый адаптер ядра', 'This client requires a newer core adapter'));
-      return;
+      return false;
     }
     if (version.compareTo(minimum) < 0 ||
         (journal.current != null && version.compareTo(journal.current!.version) <= 0)) {
       setState(() => _status = _tr('Обновлений ядра нет', 'No core updates'));
-      return;
+      return false;
     }
     final approved = await dialogs.showMessage(
       context: context,
@@ -85,7 +81,47 @@ class _CoreReleaseSectionState extends ConsumerState<CoreReleaseSection> {
       )),
       cancelable: true,
     );
-    if (approved != true || !mounted) return;
+    return approved == true && mounted;
+  }
+
+  Future<void> _checkCustom() async {
+    final url = await dialogs.showUrlInput(
+      title: _tr('URL подписанного манифеста ядра', 'Signed core manifest URL'),
+      value: defaultCoreManifestUrl,
+    );
+    if (!mounted || url == null) return;
+    await _check(url: url.trim());
+  }
+
+  Future<void> _importLocal() => _run(() async {
+    final action = ref.read(coreActionProvider.notifier);
+    final updater = _updater();
+    setState(() => _status = _tr('Выберите core-manifest.json', 'Select core-manifest.json'));
+    final manifest = await picker.pickerFile();
+    if (!mounted || manifest == null || manifest.path == null) return;
+    setState(() => _status = _tr('Выберите FlClashCore.exe', 'Select FlClashCore.exe'));
+    final binary = await picker.pickerFile();
+    if (!mounted || binary == null || binary.path == null) return;
+    final prepared = await updater.importLocal(
+      manifestFile: File(manifest.path!),
+      binary: File(binary.path!),
+    );
+    if (!mounted || !await _approve(prepared.manifest)) return;
+    setState(() => _status = _tr('Проверка и установка…', 'Verifying and installing…'));
+    final verified = await updater.stage(prepared);
+    if (!mounted) return;
+    final ok = await action.activateCoreRelease(verified);
+    if (mounted) setState(() => _status = ok
+        ? _tr('Установлено: ${verified.version.value}', 'Installed: ${verified.version.value}')
+        : _tr('Обновление не применено', 'Update not applied'));
+  });
+
+  Future<void> _check({String url = defaultCoreManifestUrl}) => _run(() async {
+    final action = ref.read(coreActionProvider.notifier);
+    final updater = _updater();
+    final token = _downloadCancel = CancelToken();
+    final offer = await updater.check(url: url, cancelToken: token);
+    if (!await _approve(offer.manifest)) return;
     PreparedCoreRelease? prepared;
     try {
       prepared = await updater.downloadOffer(
@@ -150,7 +186,15 @@ class _CoreReleaseSectionState extends ConsumerState<CoreReleaseSection> {
           leading: const GlyphIcon(AppGlyphs.cpu),
           title: Text(_tr('Проверить обновление ядра', 'Check core updates')),
           subtitle: Text(_status ?? _tr('Отдельно от приложения', 'Separate from app updates')),
-          onTap: disabled ? null : _check,
+          onTap: disabled ? null : () => _check(),
+        ),
+        ListItem(
+          title: Text(_tr('Обновить ядро по URL', 'Update core from URL')),
+          onTap: disabled ? null : _checkCustom,
+        ),
+        ListItem(
+          title: Text(_tr('Установить подписанное ядро из файлов', 'Install signed core from files')),
+          onTap: disabled ? null : _importLocal,
         ),
         ListItem(
           leading: const GlyphIcon(AppGlyphs.sync),
