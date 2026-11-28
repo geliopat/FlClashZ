@@ -5,6 +5,13 @@ import 'package:material_ui/material_ui.dart';
 /// Visual material requested by the Flutter scene, independent of native DWM.
 enum MaterialEffect { none, mica, micaAlt, acrylic }
 
+/// Mica Alt remains a legacy enum value for compatibility, but is not offered.
+const selectableMaterialEffects = [
+  MaterialEffect.none,
+  MaterialEffect.mica,
+  MaterialEffect.acrylic,
+];
+
 enum AppearanceSurface { window, card, button }
 
 typedef PaneAppearance = ({
@@ -40,7 +47,7 @@ double appearanceNumber(Object? raw, double fallback, double max) =>
 
 MaterialEffect paneEffect(Object? raw) => switch (raw) {
   'mica' => MaterialEffect.mica,
-  'micaAlt' => MaterialEffect.micaAlt,
+  'micaAlt' => MaterialEffect.mica,
   'acrylic' => MaterialEffect.acrylic,
   _ => MaterialEffect.none,
 };
@@ -66,7 +73,8 @@ MaterialAppearance decodeMaterialAppearance(Map<String, Object?> raw) => (
 
 Map<String, Object?> encodeMaterialAppearance(MaterialAppearance value) {
   Object? pane(PaneAppearance? p) => p == null ? null : {
-    'effect': p.effect.name, 'opacity': p.opacity, 'blur': p.blur, 'tint': p.tint,
+    'effect': p.effect == MaterialEffect.micaAlt ? 'mica' : p.effect.name,
+    'opacity': p.opacity, 'blur': p.blur, 'tint': p.tint,
   };
   return {
     'windowOpacity': value.windowOpacity,

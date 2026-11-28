@@ -207,7 +207,7 @@ class _SurfaceAppearanceItem extends ConsumerWidget {
           ListItem<MaterialEffect>.options(
             title: Text(ru ? 'Материал' : 'Material'),
             subtitle: stored == null ? Text(ru ? 'Исходное оформление' : 'Original appearance') : null,
-            options: MaterialEffect.values, value: pane.effect, textBuilder: label,
+            options: selectableMaterialEffects, value: pane.effect, textBuilder: label,
             onChanged: (effect) => unawaited(save(updatePane((
               effect: effect, opacity: pane.opacity, blur: pane.blur, tint: pane.tint,
             )))),
