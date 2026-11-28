@@ -5,6 +5,8 @@ class GeoResourceAction extends _$GeoResourceAction {
   /// Whether each manual update announces a success; a failure always shows.
   final _manualUpdates = <GeoResource, bool>{};
   final _operations = <GeoResource, int>{};
+  final _requests = <GeoResource, int>{};
+  int _nextRequest = 0;
 
   CoreController get _core => ref.read(coreHandlerProvider);
 
@@ -14,6 +16,7 @@ class GeoResourceAction extends _$GeoResourceAction {
       if (next != CoreStatus.connected) {
         _manualUpdates.clear();
         _operations.clear();
+        _requests.clear();
       }
     });
   }
@@ -62,12 +65,18 @@ class GeoResourceAction extends _$GeoResourceAction {
     final previous = _manualUpdates[geoResource];
     _manualUpdates[geoResource] = announceSuccess;
     final operation = _startUpdating(geoResource);
+    final request = ++_nextRequest;
+    _requests[geoResource] = request;
     try {
       final message = await _core.updateGeoData(geoResource.name);
       if (message.isNotEmpty) {
         throw MessageException(message);
       }
     } catch (_) {
+      // A late rejection must not resurrect feedback after completion,
+      // disconnect, or a newer request for the same resource.
+      if (!ref.mounted || _requests[geoResource] != request ||
+          _operations[geoResource] != operation) rethrow;
       if (previous != null) {
         _manualUpdates[geoResource] = previous;
       } else {
@@ -75,6 +84,7 @@ class GeoResourceAction extends _$GeoResourceAction {
       }
       if (!running) {
         _stopUpdating(geoResource, operation);
+        _requests.remove(geoResource);
       }
       rethrow;
     }
@@ -102,6 +112,7 @@ class GeoResourceAction extends _$GeoResourceAction {
     if (updating) {
       _startUpdating(geoResource);
     } else {
+      _requests.remove(geoResource);
       _stopUpdating(geoResource);
       if (system.isWindows) {
         ref.read(resourcesActionProvider.notifier).geoCompleted(geoResource, error);

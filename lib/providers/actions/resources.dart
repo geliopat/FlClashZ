@@ -7,10 +7,17 @@ class ResourcesAction extends _$ResourcesAction {
   final _newProfiles = <int, Set<String>>{};
   int? _appliedProfileId;
   bool _refreshingProfile = false;
+  int _appliedGeneration = 0;
 
   @override
   void build() {
     ref.onDispose(() => _timer?.cancel());
+    ref.listen(coreStatusProvider, (before, after) {
+      if (before != after && after != CoreStatus.connected) {
+        _appliedProfileId = null;
+        _appliedGeneration++;
+      }
+    });
   }
 
   /// One timer, also while the window is hidden. Core owns its Geo and
@@ -28,7 +35,10 @@ class ResourcesAction extends _$ResourcesAction {
 
   void profileRemoved(int id) {
     _newProfiles.remove(id);
-    if (_appliedProfileId == id) _appliedProfileId = null;
+    if (_appliedProfileId == id) {
+      _appliedProfileId = null;
+      _appliedGeneration++;
+    }
   }
 
   /// Geo RPC acknowledgement is not the download result. Only the final
@@ -46,6 +56,7 @@ class ResourcesAction extends _$ResourcesAction {
   }
 
   Future<void> profileApplied(int? id) async {
+    if (_appliedProfileId != id) _appliedGeneration++;
     _appliedProfileId = id;
     if (id != null && _newProfiles.containsKey(id)) {
       await _refreshNewProfile();
@@ -66,16 +77,18 @@ class ResourcesAction extends _$ResourcesAction {
     final completed = _newProfiles[id];
     if (completed == null) return;
     _refreshingProfile = true;
+    final generation = _appliedGeneration;
+    bool current() => _appliedGeneration == generation && _currentApplied(id);
     try {
       final core = ref.read(coreHandlerProvider);
       final providers = await core.getExternalProviders();
-      if (!_currentApplied(id)) return;
+      if (!current()) return;
       var allAccepted = true;
       // Start geo downloads before waiting for remote providers.
       if (ref.read(patchClashConfigProvider).geoAutoUpdate) {
         final geo = ref.read(geoResourceActionProvider.notifier);
         for (final type in GeoResource.values) {
-          if (!_currentApplied(id)) return;
+          if (!current()) return;
           final key = type.updatingKey;
           if (completed.contains(key)) continue;
           if (!ref.read(updatingKeysProvider).contains(key)) {
@@ -87,7 +100,7 @@ class ResourcesAction extends _$ResourcesAction {
         }
       }
       for (final provider in providers) {
-        if (!_currentApplied(id)) return;
+        if (!current()) return;
         if (provider.vehicleType.toLowerCase() != 'http') continue;
         final key = provider.updatingKey;
         if (completed.contains(key)) continue;
@@ -100,17 +113,21 @@ class ResourcesAction extends _$ResourcesAction {
               .updateProvider(provider, showLoading: true);
           if (message.isNotEmpty) throw MessageException(message);
         })) {
+          if (!current()) return;
           completed.add(key);
         } else {
           allAccepted = false;
         }
       }
-      if (allAccepted && _currentApplied(id)) _newProfiles.remove(id);
+      if (allAccepted && current()) _newProfiles.remove(id);
     } catch (error) {
       commonPrint.log('profile resources: ${compactError(error)}',
           logLevel: LogLevel.warning);
     } finally {
       _refreshingProfile = false;
+      if (ref.mounted && generation != _appliedGeneration) {
+        unawaited(_refreshNewProfile());
+      }
     }
   }
 

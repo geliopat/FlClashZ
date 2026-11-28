@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/interface.dart';
@@ -176,6 +178,34 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('late rejection cannot remove a newer geo update after restart',
+      (tester) async {
+    final coreInterface = _MockCoreHandlerInterface();
+    final oldResponse = Completer<String>();
+    var requests = 0;
+    when(() => coreInterface.updateGeoData('MMDB')).thenAnswer(
+      (_) => requests++ == 0 ? oldResponse.future : Future.value(''),
+    );
+    final container = await _pumpGeoResourceAction(tester, coreInterface);
+    container.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+    final action = container.read(geoResourceActionProvider.notifier);
+    final key = GeoResource.MMDB.updatingKey;
+    final old = action.updateGeoResource(GeoResource.MMDB, announceSuccess: false);
+    final rejected = expectLater(old, throwsA(isA<MessageException>()));
+    container.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+    container.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+    await action.updateGeoResource(GeoResource.MMDB);
+    oldResponse.complete('old request rejected');
+    await rejected;
+    expect(container.read(isUpdatingProvider(key)), isTrue);
+    action.handleCoreUpdate('MMDB', false, false, null);
+    await tester.pump();
+    expect(container.read(isUpdatingProvider(key)), isFalse);
+    expect(find.text(currentAppLocalizations.geoUpdated(GeoResource.MMDB.name)),
+        findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
