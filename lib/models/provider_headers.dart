@@ -138,6 +138,18 @@ class ProviderHeaders {
 
   String? get preUpdateManifestUrl => _httpsUrl(text('flclashz-update-pre'));
 
+  /// Independent Windows core release source; never changes the signing key.
+  String? get coreUpdateManifestUrl {
+    final value = text('flclashz-update-core');
+    final uri = value == null ? null : Uri.tryParse(value);
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty || uri.hasFragment ||
+        (uri.hasPort && uri.port != 443)) {
+      return null;
+    }
+    return value;
+  }
+
   String? _httpsUrl(String? value) =>
       value != null && Uri.tryParse(value)?.isScheme('https') == true
       ? value

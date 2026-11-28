@@ -252,7 +252,9 @@ class CommonAction extends _$CommonAction {
     );
     PreparedCoreRelease? prepared;
     try {
-      final offer = await updater.check();
+      final source = ref.read(currentProfileProvider)?.headers.coreUpdateManifestUrl
+          ?? defaultCoreManifestUrl;
+      final offer = await updater.check(url: source);
       final journal = await coreReleaseSelection.read();
       if (!_canUpdateCore) return false;
       final raw = coreVersionDefine.isNotEmpty ? coreVersionDefine : bundledMihomoVersion;

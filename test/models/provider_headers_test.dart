@@ -134,6 +134,36 @@ void main() {
   });
 
   group('update manifest header', () {
+    test('independent core manifest is captured and separate from app updates', () {
+      final headers = ProviderHeaders(providerHeadersOf({
+        'FlClashZ-Update-Core': [' https://mirror.example/core-manifest.json '],
+        'FlClashZ-Update': ['https://mirror.example/app.json'],
+      }));
+      expect(headers.coreUpdateManifestUrl, 'https://mirror.example/core-manifest.json');
+      expect(headers.updateManifestUrl, 'https://mirror.example/app.json');
+      expect(const ProviderHeaders({}).coreUpdateManifestUrl, isNull);
+    });
+
+    test('core manifest rejects invalid HTTPS origins and respects header priority', () {
+      for (final value in [
+        '', 'http://mirror.example/core.json', 'https:core.json',
+        'https://user@mirror.example/core.json',
+        'https://mirror.example:8443/core.json',
+        'https://mirror.example/core.json#fragment',
+      ]) {
+        expect(ProviderHeaders({'flclashz-update-core': value}).coreUpdateManifestUrl, isNull,
+            reason: value);
+      }
+      expect(const ProviderHeaders({
+        'flclashx-update-core': 'https://mirror.example/old.json',
+        'flclashz-update-core': 'https://mirror.example/new.json',
+      }).coreUpdateManifestUrl, 'https://mirror.example/new.json');
+      expect(const ProviderHeaders({
+        'flclashx-update-core': 'https://mirror.example/old.json',
+        'flclashz-update-core': '',
+      }).coreUpdateManifestUrl, isNull);
+    });
+
     test('reads an https manifest url per channel, rejects other schemes', () {
       const headers = ProviderHeaders({
         'flclashx-update': 'https://mirror.example/manifest.json',

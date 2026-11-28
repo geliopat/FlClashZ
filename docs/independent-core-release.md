@@ -24,8 +24,9 @@ Increment it for breaking changes; additive changes require contract tests.
 
 Use a distinct signed core manifest domain; sign version, engine and host
 SHAs, IPC revision, target, asset name, size and SHA-256. Pin the signing public
-key in the trusted client/Helper. The application uses the default signed
-release source; there is no local import or manual source selector in the UI. Reject unsigned or incompatible executables before
+key in the trusted client/Helper. The selected profile may override the default
+HTTPS manifest URL with `flclashz-update-core`; the same signature and
+compatibility checks apply. There is no local import or manual source selector in the UI. Reject unsigned or incompatible executables before
 execution, including before probing --core-info. Refuse downgrade unless a
 previous trusted local version is explicitly restored.
 

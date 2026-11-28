@@ -17,6 +17,7 @@
 | `flclashz-special` | Особые флаги через запятую |
 | `flclashz-update` | HTTPS URL манифеста стабильного обновления приложения |
 | `flclashz-update-pre` | HTTPS URL манифеста предварительного обновления |
+| `flclashz-update-core` | HTTPS URL подписанного манифеста независимого ядра Windows |
 | `flclashz-servicename` | Название сервиса, текст или Base64 |
 | `flclashz-servicelogo` | URL логотипа, текст или Base64 |
 | `flclashz-serverinfo` | Имя серверной группы, текст или Base64 |
@@ -142,7 +143,10 @@ flclashz-buytraffic: https://example.com/traffic,10
 flclashz-newdomain: backup.example.com,https://backup2.example.com:8443
 flclashz-update: https://example.com/stable.json
 flclashz-update-pre: https://example.com/pre.json
+flclashz-update-core: https://example.com/core-manifest.json
 ```
+
+- `flclashz-update-core` используется при ручной и автоматической проверке ядра независимо от канала приложения. Без действительного заголовка используется GitHub FlClashZ (`geliopat/Clash.Meta`). Подпись проверяется тем же доверенным ключом; заголовок меняет только источник манифеста, а не правила установки.
 
 - buyplan с порогом показывает продление, когда целое число оставшихся дней не превышает порог; buytraffic — когда процент остатка не превышает порог. Без порога кнопка показывается всегда при наличии действительного URL.
 - Резервные адреса заменяют origin исходного URL при сбое скачивания, сохраняя путь, query и учётные данные. Используйте только доверенные адреса панели.
