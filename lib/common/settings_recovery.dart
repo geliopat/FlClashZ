@@ -19,12 +19,20 @@ class SettingsRecovery {
   }
 
   Future<Map<String, Object?>?> read() async {
-    if (!await file.exists()) return null;
+    final type = await FileSystemEntity.type(file.path, followLinks: false);
+    if (type == FileSystemEntityType.notFound) return null;
+    if (type != FileSystemEntityType.file) {
+      throw FileSystemException('Invalid settings recovery path', file.path);
+    }
     return decode(await file.readAsString());
   }
 
   Future<void> save(String raw) async {
     decode(raw);
+    final type = await FileSystemEntity.type(file.path, followLinks: false);
+    if (type != FileSystemEntityType.file && type != FileSystemEntityType.notFound) {
+      throw FileSystemException('Invalid settings recovery path', file.path);
+    }
     await file.writeAsStringAtomically(raw);
   }
 

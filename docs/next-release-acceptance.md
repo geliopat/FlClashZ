@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Settings path audit: refuse non-file primary paths (including symbolic links), do not interpret a non-file last-good path with missing primary as fresh data, and reject writes through obstructed paths. Independent settings recovery validates file type without following links. Its write is attempted independently of the in-store recovery-key outcome after a successful primary commit. Four regression cases added; Windows link/reparse-point and concurrent filesystem replacement behavior not yet verified.
+
 - User-directed removal: local and WebDAV backup/restore UI, archive engine, network transport, Riverpod backup action and live DAV provider, and feature-specific tests removed. Keep profile and script migrations, individual profile import/export, log export, last-known-good settings recovery and update rollback. Retired DAV and restore strategy fields are removed from the model and serialization; migration recognizes old keys and saves without them. Unknown-settings preservation explicitly excludes the retired keys. Historic recovery files may still contain old values until refreshed; no claim of secure erasure. Removed obsolete network-error WebDAV branch, all seven locale entries for backup/restore, backup-transfer instructions, README backup claims and the manual Zapret list .bak restore control. Automatic list-update rollback is retained. Verify clean build and no backup entry in both settings modes.
 
 

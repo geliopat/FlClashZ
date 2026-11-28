@@ -174,6 +174,23 @@ void main() {
       expect(Config.strictFromJson((await preferences.getConfigMap())!), config);
     });
 
+    test('independent recovery refuses a link without changing its target', () async {
+      if (Platform.isWindows) return; // Symlink creation can require elevation.
+      final folder = await Directory.systemTemp.createTemp('flclashz-settings-link-');
+      addTearDown(() => folder.delete(recursive: true));
+      final target = await File('${folder.path}/unrelated.json').writeAsString('untouched');
+      final link = await Link('${folder.path}/recovery.json').create(target.path);
+      preferences.recoveryFileOverride = () async => File(link.path);
+      try {
+        expect(await preferences.getConfigMap(), isNull);
+        expect(await preferences.saveConfig(const Config(themeProps: defaultThemeProps)), isTrue);
+        expect(await target.readAsString(), 'untouched');
+        expect(await link.exists(), isTrue);
+      } finally {
+        preferences.recoveryFileOverride = () async => null;
+      }
+    });
+
     test('independent recovery survives loss of both preferences keys', () async {
       final folder = await Directory.systemTemp.createTemp('flclashz-settings-');
       final file = File('${folder.path}${Platform.pathSeparator}backup.json');

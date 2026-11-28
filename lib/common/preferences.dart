@@ -244,11 +244,15 @@ class Preferences {
           await store.reload();
           commonPrint.log('Settings backup write rejected', logLevel: LogLevel.warning);
         }
+      } catch (_) {
+        // Primary commit already succeeded. Try the independent recovery
+        // file even if the preferences backend rejected its own copy.
+        commonPrint.log('Settings recovery key write failed', logLevel: LogLevel.warning);
+      }
+      try {
         await recovery?.save(encoded);
       } catch (_) {
-        // Primary config was already committed. A backup failure must not
-        // make migration retry an already successful primary write.
-        commonPrint.log('Settings recovery copy write failed', logLevel: LogLevel.warning);
+        commonPrint.log('Independent settings recovery write failed', logLevel: LogLevel.warning);
       }
       return true;
     });

@@ -49,9 +49,21 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
   Future<Map<String, Object>> _load() async {
     final file = File(await _path);
     final backup = File('${file.path}.last-good');
+    // File.exists() is false for directories and dangling links. Such an
+    // obstruction is not a new installation and must not trigger import or
+    // writes through an unexpected symlink. Inspect both paths without following
+    // links before attempting recovery.
+    final primaryType = await FileSystemEntity.type(file.path, followLinks: false);
+    final backupType = enableRecovery
+        ? await FileSystemEntity.type(backup.path, followLinks: false)
+        : FileSystemEntityType.notFound;
+    if (primaryType != FileSystemEntityType.file &&
+        primaryType != FileSystemEntityType.notFound) {
+      throw FileSystemException('Invalid preferences path', file.path);
+    }
     try {
-      if (!await file.exists()) {
-        if (enableRecovery && await backup.exists()) {
+      if (primaryType == FileSystemEntityType.notFound) {
+        if (enableRecovery && backupType != FileSystemEntityType.notFound) {
           throw const FormatException('Preferences missing');
         }
         return {};
@@ -60,9 +72,9 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
       if (content.isEmpty && !enableRecovery) return {};
       return _decode(content);
     } catch (_) {
-      if (!enableRecovery || !await backup.exists()) rethrow;
+      if (!enableRecovery || backupType != FileSystemEntityType.file) rethrow;
       final recovered = _decode(await backup.readAsString());
-      if (await file.exists()) {
+      if (primaryType == FileSystemEntityType.file) {
         // Preserve the exact damaged bytes, without exposing them in logs.
         final evidence = '${file.path}.corrupt-${DateTime.now().microsecondsSinceEpoch}';
         await file.copy(evidence);
@@ -109,6 +121,18 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
     final backup = File('${file.path}.last-good');
     var resetBackupPrepared = false;
     try {
+      final primaryType = await FileSystemEntity.type(file.path, followLinks: false);
+      if (primaryType != FileSystemEntityType.file &&
+          primaryType != FileSystemEntityType.notFound) {
+        throw FileSystemException('Invalid preferences path', file.path);
+      }
+      if (enableRecovery) {
+        final backupType = await FileSystemEntity.type(backup.path, followLinks: false);
+        if (backupType != FileSystemEntityType.file &&
+            backupType != FileSystemEntityType.notFound) {
+          throw FileSystemException('Invalid preferences recovery path', backup.path);
+        }
+      }
       // A clear is destructive: never acknowledge it while an older recovery
       // copy could still resurrect the cleared keys. Prepare it before primary.
       if (enableRecovery && clearing) {

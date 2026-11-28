@@ -58,6 +58,36 @@ void main() {
     expect(await openStore().getAll(), isEmpty);
   });
 
+  test('a directory at the primary path is not a fresh installation', () async {
+    final directory = await Directory(path).create();
+    final occupied = await File(join(directory.path, 'occupied')).writeAsString('keep');
+    final store = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    await expectLater(store.getAll(), throwsA(isA<FileSystemException>()));
+    expect(await store.setValue('Bool', 'flutter.enabled', true), isFalse);
+    expect(await occupied.readAsString(), 'keep');
+    expect(await File('$path.last-good').exists(), isFalse);
+  });
+
+  test('a directory at the only recovery path cannot masquerade as fresh data', () async {
+    final backup = await Directory('$path.last-good').create();
+    final store = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    await expectLater(store.getAll(), throwsFormatException);
+    expect(await store.setValue('Bool', 'flutter.enabled', true), isFalse);
+    expect(await backup.exists(), isTrue);
+    expect(await File(path).exists(), isFalse);
+  });
+
+  test('a link to unrelated data is not a preferences file', () async {
+    if (Platform.isWindows) return; // Creating links may need elevation.
+    final other = await File(join(dir.path, 'other.json')).writeAsString('{"flutter.version":9}');
+    final link = await Link(path).create(other.path);
+    final store = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    await expectLater(store.getAll(), throwsA(isA<FileSystemException>()));
+    expect(await store.setValue('Int', 'flutter.version', 1), isFalse);
+    expect(await link.exists(), isTrue);
+    expect(jsonDecode(await other.readAsString()), {'flutter.version': 9});
+  });
+
   test('a torn file fails to load until it is readable again', () async {
     File(path).writeAsStringSync('{"flutter.config": "{');
     final store = openStore();
