@@ -535,10 +535,14 @@ class ZapretController extends Notifier<ZapretState> {
 
   Future<void> _maybeUpdateLists() async {
     if (_checkingListUpdate || !_canCommitListUpdate() ||
-        !zapretListUpdater.isDue) return;
+        !zapretListUpdater.isDue) {
+      return;
+    }
     final now = DateTime.now();
     if (_listReadinessRetry case final retry? when now.isBefore(retry) &&
-        retry.difference(now) <= zapretListRetryInterval) return;
+        retry.difference(now) <= zapretListRetryInterval) {
+      return;
+    }
     _checkingListUpdate = true;
     try {
       final readiness = await _client.readiness(
@@ -838,9 +842,11 @@ class ZapretController extends Notifier<ZapretState> {
           unawaited(collectPersistentLogs());
           unawaited(refresh().then((_) {
             if (ref.mounted) unawaited(_maybeUpdateLists());
-            if (ref.mounted) return _syncHeaderOverlay().then((_) {
-              if (ref.mounted) return _reconcileInfrastructure();
-            });
+            if (ref.mounted) {
+              return _syncHeaderOverlay().then((_) {
+                if (ref.mounted) return _reconcileInfrastructure();
+              });
+            }
           }));
         }
       });
@@ -1583,11 +1589,12 @@ class ZapretController extends Notifier<ZapretState> {
             }
           }
         }
-        if (!ref.mounted) return;
-        state = state.copyWith(busy: false, clearTestProgress: true,
-            testSummary: historyError == null ? summary : '$summary\n$historyError',
-            trials: interrupted ? previousTrials : List.unmodifiable(ranked), error: failure);
-        await refresh();
+        if (ref.mounted) {
+          state = state.copyWith(busy: false, clearTestProgress: true,
+              testSummary: historyError == null ? summary : '$summary\n$historyError',
+              trials: interrupted ? previousTrials : List.unmodifiable(ranked), error: failure);
+          await refresh();
+        }
       }
     }
   }
@@ -1607,7 +1614,9 @@ class ZapretController extends Notifier<ZapretState> {
 
   Future<void> _automaticTune() async {
     if (!ref.mounted || _launchBlocked || state.busy || !state.running ||
-        state.strategies.isEmpty) return;
+        state.strategies.isEmpty) {
+      return;
+    }
     final revision = _lifecycleRevision;
     final profile = ref.read(currentProfileIdProvider);
     final policy = _policySignature;
@@ -1615,7 +1624,9 @@ class ZapretController extends Notifier<ZapretState> {
     if (!ref.mounted || revision != _lifecycleRevision ||
         profile != ref.read(currentProfileIdProvider) || policy != _policySignature ||
         _cancelTrial || _launchBlocked || state.busy || !state.running ||
-        state.error != null) return;
+        state.error != null) {
+      return;
+    }
     final winner = state.trials.where(_compatibleTrial).firstOrNull;
     if (winner != null) await _applySelection(winner.id, winner.mode);
   }
