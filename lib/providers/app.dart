@@ -7,6 +7,8 @@ import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/core.dart';
+import 'package:fl_clash/providers/action.dart';
+import 'package:fl_clash/providers/state.dart';
 import 'package:flutter/services.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -128,8 +130,18 @@ class RequestCount extends _$RequestCount with AutoDisposeNotifierMixin {
 
 @Riverpod(keepAlive: true)
 class Providers extends _$Providers with AutoDisposeNotifierMixin {
+  int _refresh = 0;
+
   @override
   List<ExternalProvider> build() {
+    if (system.isWindows) {
+      ref.listen(coreStatusProvider, (previous, next) {
+        if (previous != next) _refresh++;
+      });
+      ref.listen(currentProfileIdProvider, (previous, next) {
+        if (previous != next) _refresh++;
+      });
+    }
     return [];
   }
 
@@ -142,7 +154,15 @@ class Providers extends _$Providers with AutoDisposeNotifierMixin {
   }
 
   Future<void> syncProviders() async {
-    value = await ref.read(coreHandlerProvider).getExternalProviders();
+    final refresh = ++_refresh;
+    final pushes = system.isWindows
+        ? ref.read(setupActionProvider.notifier).pushes : null;
+    final providers = await ref.read(coreHandlerProvider).getExternalProviders();
+    if (!ref.mounted || refresh != _refresh ||
+        (system.isWindows && pushes != ref.read(setupActionProvider.notifier).pushes)) {
+      return;
+    }
+    value = providers;
   }
 }
 

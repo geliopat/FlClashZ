@@ -85,6 +85,17 @@ class ProxiesAction extends _$ProxiesAction {
   var _settledChanges = 0;
 
   var _groupRefreshes = 0;
+  var _nativeGeneration = 0;
+
+  bool Function() _nativeRequestGuard() {
+    final generation = _nativeGeneration;
+    final profileId = ref.read(currentProfileIdProvider);
+    final pushes = ref.read(setupActionProvider.notifier).pushes;
+    return () => ref.mounted && (!system.isWindows ||
+        (generation == _nativeGeneration &&
+         profileId == ref.read(currentProfileIdProvider) &&
+         pushes == ref.read(setupActionProvider.notifier).pushes));
+  }
 
   @override
   void build() {
@@ -103,6 +114,7 @@ class ProxiesAction extends _$ProxiesAction {
       ref.listen(initProvider, (_, _) => _syncAutoDelayTimer());
       ref.listen(groupsProvider, (_, _) => _syncAutoDelayTimer());
       ref.listen(currentProfileIdProvider, (_, _) {
+        _nativeGeneration++;
         cancelDelayTests();
       });
       ref.listen(isStartProvider, (previous, running) {
@@ -112,7 +124,8 @@ class ProxiesAction extends _$ProxiesAction {
         }
       });
     }
-    ref.listen(coreStatusProvider, (_, next) {
+    ref.listen(coreStatusProvider, (previous, next) {
+      if (previous != next) _nativeGeneration++;
       if (next != CoreStatus.connected) {
         cancelDelayTests();
       }
@@ -235,11 +248,13 @@ class ProxiesAction extends _$ProxiesAction {
     var asked = const <String, String>{};
     var settled = _settledChanges;
     final refresh = ++_groupRefreshes;
+    final currentNative = _nativeRequestGuard();
     final profileId = ref.read(currentProfileIdProvider);
     final pushes = ref.read(setupActionProvider.notifier).pushes;
     try {
       final groups = await retry<List<Group>>(
         task: () async {
+          if (!currentNative() || refresh != _groupRefreshes) return [];
           final sortType = ref.read(
             proxiesStyleSettingProvider.select((state) => state.sortType),
           );
@@ -267,11 +282,11 @@ class ProxiesAction extends _$ProxiesAction {
             return [];
           }
         },
-        retryIf: (res) => res.isEmpty,
+        retryIf: (res) => res.isEmpty && currentNative() && refresh == _groupRefreshes,
       );
       // A later refresh, or the apply that follows a profile switch, has the
       // groups to show.
-      if (refresh != _groupRefreshes ||
+      if (!currentNative() || refresh != _groupRefreshes ||
           profileId != ref.read(currentProfileIdProvider)) {
         return;
       }
@@ -391,6 +406,7 @@ class ProxiesAction extends _$ProxiesAction {
     String proxyName,
   ) async {
     final key = (profileId, groupName);
+    final currentNative = _nativeRequestGuard();
     final String? running;
     try {
       running = await _core.groupPick(groupName);
@@ -402,7 +418,7 @@ class ProxiesAction extends _$ProxiesAction {
       return;
     }
     // Gone from the new config, run already, or picked again since.
-    if (running == null ||
+    if (!currentNative() || running == null ||
         running == proxyName ||
         profileId != ref.read(currentProfileIdProvider) ||
         ref.read(selectedMapProvider)[groupName] != proxyName ||
@@ -516,6 +532,7 @@ class ProxiesAction extends _$ProxiesAction {
     ExternalProvider provider, {
     bool showLoading = false,
   }) async {
+    final currentNative = _nativeRequestGuard();
     final operation = showLoading
         ? ref
               .read(updatingKeysProvider.notifier)
@@ -526,19 +543,22 @@ class ProxiesAction extends _$ProxiesAction {
         clashProvidersActionProvider.notifier,
       );
       final ruleSet = await clashProvidersAction.remoteProviderOf(provider);
+      if (!currentNative()) return 'Provider operation superseded by profile or core change';
       if (ruleSet != null && !await clashProvidersAction.syncRemote(ruleSet)) {
         return '';
       }
+      if (!currentNative()) return 'Provider operation superseded by profile or core change';
       final message = await _core.updateExternalProvider(
         providerName: provider.name,
       );
+      if (!currentNative()) return 'Provider operation superseded by profile or core change';
       if (message.isNotEmpty) return message;
-      ref
-          .read(providersProvider.notifier)
-          .setProvider(await _core.getExternalProvider(provider.name));
+      final refreshed = await _core.getExternalProvider(provider.name);
+      if (!currentNative()) return 'Provider operation superseded by profile or core change';
+      ref.read(providersProvider.notifier).setProvider(refreshed);
       return '';
     } finally {
-      if (operation != null) {
+      if (operation != null && ref.mounted) {
         ref
             .read(updatingKeysProvider.notifier)
             .stop(provider.updatingKey, operation);
@@ -551,6 +571,7 @@ class ProxiesAction extends _$ProxiesAction {
     String data, {
     bool showLoading = false,
   }) async {
+    final currentNative = _nativeRequestGuard();
     final operation = showLoading
         ? ref
               .read(updatingKeysProvider.notifier)
@@ -563,13 +584,14 @@ class ProxiesAction extends _$ProxiesAction {
         type: provider.type,
         data: data,
       );
+      if (!currentNative()) return 'Provider operation superseded by profile or core change';
       if (message.isNotEmpty) return message;
-      ref
-          .read(providersProvider.notifier)
-          .setProvider(await _core.getExternalProvider(provider.name));
+      final refreshed = await _core.getExternalProvider(provider.name);
+      if (!currentNative()) return 'Provider operation superseded by profile or core change';
+      ref.read(providersProvider.notifier).setProvider(refreshed);
       return '';
     } finally {
-      if (operation != null) {
+      if (operation != null && ref.mounted) {
         ref
             .read(updatingKeysProvider.notifier)
             .stop(provider.updatingKey, operation);

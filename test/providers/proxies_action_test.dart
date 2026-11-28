@@ -1491,6 +1491,44 @@ void main() {
   });
 
   group('updateProvider', () {
+    test('Windows discards provider replies from an obsolete config', () async {
+      if (!Platform.isWindows) return;
+      final started = Completer<void>();
+      final release = Completer<String>();
+      when(() => core.updateExternalProvider('geo')).thenAnswer((_) {
+        started.complete();
+        return release.future;
+      });
+      final container = buildContainer();
+      final original = _provider('geo', count: 7);
+      container.read(providersProvider.notifier).value = [original];
+      final pending = actionOf(container).updateProvider(original, showLoading: true);
+      await started.future;
+      _AppliedSetupAction.pushCount++;
+      release.complete('');
+      expect(await pending, isNotEmpty);
+      verifyNever(() => core.getExternalProvider('geo'));
+      expect(container.read(providersProvider), [original]);
+      expect(container.read(isUpdatingProvider('provider_geo')), isFalse);
+    });
+
+    test('Windows discards a provider list from a previous process', () async {
+      if (!Platform.isWindows) return;
+      final release = Completer<List<ExternalProvider>>();
+      when(core.getExternalProviders).thenAnswer((_) => release.future);
+      final container = buildContainer();
+      container.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+      final notifier = container.read(providersProvider.notifier);
+      final pending = notifier.syncProviders();
+      container.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+      container.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+      final current = _provider('geo', count: 9);
+      notifier.value = [current];
+      release.complete([_provider('geo', count: 1)]);
+      await pending;
+      expect(container.read(providersProvider), [current]);
+    });
+
     test(
       'stores the refreshed provider and clears the updating flag',
       () async {
