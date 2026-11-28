@@ -2867,6 +2867,42 @@ void main() {
       },
     );
 
+    test('Windows rejects a successful reply from a superseded core process', () async {
+      if (!Platform.isWindows) return;
+      final core = _MockCoreHandlerInterface();
+      final started = Completer<void>();
+      final answer = Completer<String>();
+      when(() => core.setupConfig(any())).thenAnswer((_) {
+        started.complete();
+        return answer.future;
+      });
+      final scoped = ProviderContainer(
+        overrides: [
+          trafficHistoryProvider.overrideWith((ref) => TrafficHistory(persist: false)),
+          zapretControllerProvider.overrideWith(_IdleZapret.new),
+          currentProfileProvider.overrideWithValue(null),
+          setupStateProvider.overrideWith((_, _) => nullProfileSetupState),
+          coreHandlerProvider.overrideWithValue(CoreController.scoped(core)),
+          patchClashConfigProvider.overrideWithBuild((_, _) => _tunOff),
+          setupActionProvider.overrideWith(SetupAction.new),
+        ],
+      );
+      addTearDown(scoped.dispose);
+      final oldCounts = globalState.lastConfigCounts;
+      addTearDown(() => globalState.lastConfigCounts = oldCounts);
+      scoped.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+      final action = scoped.read(setupActionProvider.notifier);
+      final applying = action.applyProfile(force: true);
+      await started.future;
+      scoped.read(coreStatusProvider.notifier).value = CoreStatus.connecting;
+      scoped.read(coreStatusProvider.notifier).value = CoreStatus.connected;
+      answer.complete('');
+      expect(await applying, isFalse);
+      expect(globalState.lastConfigMd5, isNull);
+      expect(globalState.lastConfigCounts, isNull);
+      expect(await action.inputsApplied(), isFalse);
+    });
+
     test(
       'a listener handoff failure during initialize rolls back running',
       () async {

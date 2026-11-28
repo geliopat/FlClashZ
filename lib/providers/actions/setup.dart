@@ -655,6 +655,7 @@ class SetupAction extends _$SetupAction {
   /// Whether the Core runs what the current profile and settings make now.
   Future<bool> inputsApplied() async {
     final applied = _appliedInputs;
+    final generation = _coreGeneration;
     if (applied == null) {
       return false;
     }
@@ -665,7 +666,11 @@ class SetupAction extends _$SetupAction {
     } catch (_) {
       return false;
     }
-    return applied ==
+    return !_exiting &&
+        generation == _coreGeneration &&
+        applied == _appliedInputs &&
+        profileId == ref.read(currentProfileIdProvider) &&
+        applied ==
         (
           setupState,
           _effectivePatchConfig(ref.read(patchClashConfigProvider)),
@@ -1130,6 +1135,17 @@ class SetupAction extends _$SetupAction {
       return _SetupTaskResult.handoffToCoreRestart;
     }
     final pushWatch = Stopwatch()..start();
+    final coreGeneration = _coreGeneration;
+    bool currentCore() => !_exiting &&
+        (!system.isWindows || coreGeneration == _coreGeneration);
+    void checkCurrentCore() {
+      if (!currentCore()) {
+        throw const CoreMethodException(
+          code: 'no_response',
+          message: 'Profile apply superseded by core lifecycle change',
+        );
+      }
+    }
     final realPatchConfig = _effectivePatchConfig(patchConfig);
     final networkSetting = ref.read(networkSettingProvider);
     SetupState? setupState;
@@ -1138,7 +1154,7 @@ class SetupAction extends _$SetupAction {
       setupState = state;
       return getProfile(setupState: state, patchConfig: realPatchConfig);
     }, title: 'build profile');
-    if (_exiting) return _SetupTaskResult.failed;
+    if (!currentCore()) return _SetupTaskResult.failed;
     final profileFailed = realProfile == null;
     if (system.isWindows && profileFailed) {
       // No empty/default replacement and no listener start after build error.
@@ -1162,7 +1178,9 @@ class SetupAction extends _$SetupAction {
       _appliedHostCandidates = hostCandidates;
       globalState.lastConfigCounts = realProfile.counts;
       await preloadInvoke?.call();
+      if (!currentCore()) return _SetupTaskResult.failed;
       await _syncZapretInfrastructure(realProfile, profile?.id);
+      if (!currentCore()) return _SetupTaskResult.failed;
       if (system.isWindows) {
         unawaited(ref.read(resourcesActionProvider.notifier).profileApplied(profile?.id));
       }
@@ -1172,7 +1190,6 @@ class SetupAction extends _$SetupAction {
     // Keep the last acknowledged display metadata until a definite answer.
     final previousCounts = globalState.lastConfigCounts;
     final previousHosts = _appliedHostCandidates;
-    final coreGeneration = _coreGeneration;
     // Until the push succeeds do not report the new profile as applied.
     _appliedInputs = null;
     if (system.isWindows) {
@@ -1228,16 +1245,20 @@ class SetupAction extends _$SetupAction {
             if (profileId != null) {
               await appPath.ensureProviderDirs(profileId);
             }
-            if (_exiting) throw StateError('Application is exiting');
+            checkCurrentCore();
             final String message;
             try {
               message = await _core.setupConfig(
                 params: setupParams,
-                preloadInvoke: preloadInvoke,
+                // Windows native acceptance and listener startup are distinct
+                // operations. A failed listener must not masquerade as native
+                // rejection of an already committed profile.
+                preloadInvoke: system.isWindows ? null : preloadInvoke,
               );
             } finally {
               _pushes++;
             }
+            checkCurrentCore();
             if (message.isNotEmpty) {
               if (system.isWindows) {
                 // An explicit rejection (unlike a lost IPC response) proves
@@ -1255,7 +1276,16 @@ class SetupAction extends _$SetupAction {
               throw MessageException(message);
             }
             accepted = !profileFailed;
-            if (accepted) _appliedHostCandidates = hostCandidates;
+            if (accepted) {
+              _appliedHostCandidates = hostCandidates;
+              if (system.isWindows) {
+                globalState.lastConfigCounts = realProfile!.counts;
+              }
+            }
+            if (system.isWindows) {
+              await preloadInvoke?.call();
+              checkCurrentCore();
+            }
           } catch (e, s) {
             setupFailed = true;
             if (preloadInvoke != null) {
@@ -1273,7 +1303,8 @@ class SetupAction extends _$SetupAction {
             if (zapret != null && transition != null) {
               try {
                 await zapret.finishProfileApply(transition,
-                  yaml: protectionYaml, profileId: profile?.id, accepted: accepted);
+                  yaml: protectionYaml, profileId: profile?.id,
+                  accepted: accepted && currentCore());
               } catch (error) {
                 // Core apply has already completed. Surface the Zapret error
                 // without rolling back or misreporting the Mihomo config.
@@ -1282,7 +1313,7 @@ class SetupAction extends _$SetupAction {
               }
             }
           }
-          if (_exiting) { setupFailed = true; return; }
+          if (!currentCore()) { setupFailed = true; return; }
           globalState.lastConfigMd5 = yamlMd5;
           globalState.lastConfigCounts =
               realProfile?.counts ?? configCountsOf(const {});
@@ -1295,7 +1326,9 @@ class SetupAction extends _$SetupAction {
                 .read(proxiesActionProvider.notifier)
                 .resendPicksSince(setupParams.selectedMap);
           }
+          if (!currentCore()) { setupFailed = true; return; }
           await onUpdated?.call();
+          if (!currentCore()) { setupFailed = true; return; }
           if (system.isWindows && accepted) {
             unawaited(ref.read(resourcesActionProvider.notifier).profileApplied(profile?.id));
           }
