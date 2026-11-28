@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/controller.dart';
 import 'package:fl_clash/core/method.dart';
 import 'package:fl_clash/features/features.dart';
 import 'package:fl_clash/models/models.dart';
 import 'package:fl_clash/providers/providers.dart';
+import 'package:fl_clash/providers/connection_statistics.dart';
+import 'package:fl_clash/enum/enum.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:fl_clash/ui/icons/icons.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
@@ -38,6 +43,9 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView>
   final _speedRanker = TrackerSpeedRanker();
   late final ScrollController _scrollController;
   var _loaded = false;
+  var _unavailable = false;
+  int _sampleEpoch = 0;
+  ProviderSubscription<AsyncValue<ConnectionStatisticsSample?>>? _subscription;
 
   @override
   void initState() {
@@ -47,7 +55,60 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView>
   }
 
   @override
+  bool get canPoll => widget.connectionsReader != null && super.canPoll;
+
+  @override
   Duration get pollInterval => const Duration(seconds: 1);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncSharedFeed();
+  }
+
+  @override
+  void didUpdateWidget(covariant ConnectionsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.connectionsReader != widget.connectionsReader) {
+      _syncSharedFeed();
+      restartPolling();
+    }
+  }
+
+  void _syncSharedFeed() {
+    final active = widget.connectionsReader == null &&
+        PageActivityScope.isActiveOf(context) &&
+        TickerMode.valuesOf(context).enabled;
+    if (!active) {
+      _sampleEpoch++;
+      _subscription?.close();
+      _subscription = null;
+      return;
+    }
+    _subscription ??= ref.listenManual(
+      connectionStatisticsProvider,
+      (_, next) {
+        final data = next.asData;
+        if (data == null && !next.hasError) return;
+        final epoch = ++_sampleEpoch;
+        scheduleMicrotask(() {
+          if (!mounted || epoch != _sampleEpoch) return;
+          final sample = data?.value;
+          final connected = ref.read(coreStatusProvider) == CoreStatus.connected;
+          final unavailable = sample == null && connected;
+          if (_unavailable != unavailable) {
+            setState(() => _unavailable = unavailable);
+          }
+          _showConnections(
+            sample?.snapshot.connections ?? const <TrackerInfo>[],
+            sampledAt: sample?.sampledAt,
+            epoch: epoch,
+          );
+        });
+      },
+      fireImmediately: true,
+    );
+  }
 
   List<IconButtonData> _buildActions() {
     return [
@@ -72,19 +133,20 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView>
   }
 
   Future<void> _refreshConnections() async {
-    final trackerInfos = await _readConnections();
-    if (!mounted) {
+    if (!mounted) return;
+    if (widget.connectionsReader == null) {
+      // Closing a connection invalidates the controller cache; ask the shared
+      // feed to refresh so every consumer sees the same new sample.
+      ref.invalidate(connectionStatisticsProvider);
       return;
     }
-    _showConnections(trackerInfos);
+    final trackerInfos = await _readConnections();
+    if (mounted) _showConnections(trackerInfos);
   }
 
   Future<List<TrackerInfo>?> _readConnections() async {
     try {
-      final connectionsReader = widget.connectionsReader;
-      return connectionsReader != null
-          ? await connectionsReader()
-          : (await _core.getConnectionSnapshot()).connections;
+      return await widget.connectionsReader!();
     } catch (error) {
       commonPrint.log(
         'updateConnections error: $error',
@@ -94,21 +156,33 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView>
     }
   }
 
-  void _showConnections(List<TrackerInfo>? trackerInfos) {
-    final readAt = DateTime.now();
+  void _showConnections(
+    List<TrackerInfo>? trackerInfos, {
+    DateTime? sampledAt,
+    int? epoch,
+  }) {
+    final readAt = sampledAt ?? DateTime.now();
+    void apply() {
+      if (!mounted || (epoch != null && epoch != _sampleEpoch)) return;
+      _applyConnections(trackerInfos, readAt);
+    }
+
     if (!_loaded) {
       setState(() => _loaded = true);
-      _applyConnections(trackerInfos, readAt);
+      apply();
       return;
     }
-    updateWhenRouteSettled(() => _applyConnections(trackerInfos, readAt));
+    updateWhenRouteSettled(apply);
   }
 
   void _applyConnections(List<TrackerInfo>? trackerInfos, DateTime readAt) {
     if (trackerInfos == null) {
       return;
     }
-    _listController.setTrackerInfos(_speedRanker.rank(trackerInfos, readAt));
+    final ranked = _speedRanker.rank(trackerInfos, readAt);
+    if (!listEquals(_listController.value.trackerInfos, ranked)) {
+      _listController.setTrackerInfos(ranked);
+    }
   }
 
   Future<void> _handleBlockConnection(String id) async {
@@ -118,6 +192,8 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView>
 
   @override
   void dispose() {
+    _sampleEpoch++;
+    _subscription?.close();
     _listController.dispose();
     if (widget.scrollController == null) {
       _scrollController.dispose();
@@ -152,7 +228,9 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView>
             isEmpty: connections.isEmpty,
             isSearching: state.isSearching,
             nullStatus: NullStatus(
-              label: appLocalizations.nullTip(appLocalizations.connections),
+              label: _unavailable
+                  ? appLocalizations.forkUnavailable
+                  : appLocalizations.nullTip(appLocalizations.connections),
               illustration: NullStatusIllustration.connections,
             ),
             child: RecordTableFrame<TrackerInfo>(
