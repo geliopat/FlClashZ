@@ -601,6 +601,16 @@ void main() {
     );
   });
 
+  test('Windows does not mistake an empty TUN response for health', () async {
+    final handler = _EmptyConfigCoreHandler();
+    if (Platform.isWindows) {
+      await expectLater(handler.getTunFailed(),
+          throwsA(isA<CoreMethodException>().having((e) => e.code, 'code', 'empty_result')));
+    } else {
+      expect(await handler.getTunFailed(), isFalse);
+    }
+  });
+
   test('getConfig rejects empty transport results', () async {
     final handler = _EmptyConfigCoreHandler();
 

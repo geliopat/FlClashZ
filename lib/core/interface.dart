@@ -635,7 +635,11 @@ abstract class CoreHandlerInterface with CoreInterface {
 
   @override
   Future<bool> getTunFailed() async {
-    return await _invokeMethod<bool>(method: CoreMethod.getTunFailed) ?? false;
+    final failed = await _invokeMethod<bool>(method: CoreMethod.getTunFailed);
+    if (failed == null && system.isWindows) {
+      throw const CoreMethodException(code: 'empty_result', message: 'TUN status unavailable');
+    }
+    return failed ?? false;
   }
 
   @override

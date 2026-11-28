@@ -152,7 +152,9 @@ ZapretProbeResult classifyZapretProbe({
 }
 
 class ZapretDiagnosticsState {
-  const ZapretDiagnosticsState(this.results);
+  const ZapretDiagnosticsState(this.results, {this.checkedAt});
+
+  final DateTime? checkedAt;
 
   final Map<ZapretProbeTarget, ZapretProbeResult> results;
 
@@ -306,7 +308,7 @@ class ZapretDiagnosticsController extends Notifier<ZapretDiagnosticsState> {
       if (!ref.mounted || generation != _generation ||
           ref.read(coreStatusProvider) != CoreStatus.connected ||
           ref.read(zapretControllerProvider).busy) return;
-      state = ZapretDiagnosticsState(results);
+      state = ZapretDiagnosticsState(results, checkedAt: DateTime.now());
       unawaited(ref.read(zapretControllerProvider.notifier).checkFallback(results));
     } finally {
       _refreshing = false;

@@ -57,6 +57,10 @@ class _RecoveryHistoryViewState extends State<RecoveryHistoryView> {
     'watchdog-limit' => ru ? 'Лимит Watchdog' : 'Watchdog limit',
     'reinstall' => ru ? 'Переустановка службы' : 'Reinstall service',
     'restore-service' => ru ? 'Восстановление службы' : 'Restore service',
+    'core-update' => ru ? 'Обновление ядра' : 'Core update',
+    'core-rollback' => ru ? 'Возврат версии ядра' : 'Core rollback',
+    'mihomo-restore' => ru ? 'Восстановление после перезапуска Mihomo' : 'Restore after Mihomo restart',
+    'mihomo-start' => ru ? 'Запуск вместе с Mihomo' : 'Start alongside Mihomo',
     _ => value,
   };
 
