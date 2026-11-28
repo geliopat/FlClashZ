@@ -1,5 +1,19 @@
 part of '../action.dart';
 
+// Native Z3 events are resource-scoped, not request-scoped. Require a
+// locally initiated request, observed start and acknowledgement within one
+// applied generation before crediting a profile. This is conservative,
+// not a native proof of URL identity.
+class _ProfileGeoAttempt {
+  _ProfileGeoAttempt(this.profileId, this.generation);
+  final int profileId;
+  final int generation;
+  bool started = false;
+  bool acknowledged = false;
+  bool ended = false;
+  bool succeeded = false;
+}
+
 @Riverpod(keepAlive: true)
 class ResourcesAction extends _$ResourcesAction {
   var _autoUpdating = false;
@@ -8,6 +22,7 @@ class ResourcesAction extends _$ResourcesAction {
   int? _appliedProfileId;
   bool _refreshingProfile = false;
   int _appliedGeneration = 0;
+  final _geoAttempts = <GeoResource, _ProfileGeoAttempt>{};
 
   @override
   void build() {
@@ -16,6 +31,7 @@ class ResourcesAction extends _$ResourcesAction {
       if (before != after && after != CoreStatus.connected) {
         _appliedProfileId = null;
         _appliedGeneration++;
+        _geoAttempts.clear();
       }
     });
   }
@@ -41,17 +57,40 @@ class ResourcesAction extends _$ResourcesAction {
     }
   }
 
-  /// Geo RPC acknowledgement is not the download result. Only the final
-  /// event may mark a resource complete; failures remain eligible for retry.
+  void geoStarted(GeoResource type) {
+    final attempt = _geoAttempts[type];
+    if (attempt == null || attempt.ended ||
+        attempt.generation != _appliedGeneration ||
+        !_currentApplied(attempt.profileId)) return;
+    attempt.started = true;
+  }
+
+  /// Passive and obsolete completions do not establish profile ownership.
+  /// Completion can arrive before the asynchronous RPC acknowledgement.
   void geoCompleted(GeoResource type, String? error) {
-    final id = _appliedProfileId;
-    if (id == null || !_currentApplied(id)) return;
-    final completed = _newProfiles[id];
-    if (completed == null) return;
-    if (error == null || error.isEmpty) {
-      completed.add(type.updatingKey);
+    final attempt = _geoAttempts[type];
+    if (attempt == null) return;
+    if (!attempt.started || attempt.generation != _appliedGeneration ||
+        !_currentApplied(attempt.profileId)) {
+      _geoAttempts.remove(type);
+      return;
+    }
+    attempt.ended = true;
+    attempt.succeeded = error == null || error.isEmpty;
+    _settleGeoAttempt(type, attempt);
+  }
+
+  void _settleGeoAttempt(GeoResource type, _ProfileGeoAttempt attempt) {
+    if (!identical(_geoAttempts[type], attempt) ||
+        !attempt.acknowledged || !attempt.ended) return;
+    _geoAttempts.remove(type);
+    if (attempt.generation != _appliedGeneration ||
+        !_currentApplied(attempt.profileId)) return;
+    final completed = _newProfiles[attempt.profileId];
+    if (attempt.succeeded) {
+      completed?.add(type.updatingKey);
     } else {
-      completed.remove(type.updatingKey);
+      completed?.remove(type.updatingKey);
     }
   }
 
@@ -92,8 +131,18 @@ class ResourcesAction extends _$ResourcesAction {
           final key = type.updatingKey;
           if (completed.contains(key)) continue;
           if (!ref.read(updatingKeysProvider).contains(key)) {
-            await _tryUpdate(type.name, () =>
+            final attempt = _ProfileGeoAttempt(id, generation);
+            _geoAttempts[type] = attempt;
+            final accepted = await _tryUpdate(type.name, () =>
                 geo.updateGeoResource(type, announceSuccess: false));
+            if (identical(_geoAttempts[type], attempt)) {
+              if (accepted && current()) {
+                attempt.acknowledged = true;
+                _settleGeoAttempt(type, attempt);
+              } else {
+                _geoAttempts.remove(type);
+              }
+            }
           }
           // A concurrent update and an accepted RPC are both still pending.
           if (!completed.contains(key)) allAccepted = false;

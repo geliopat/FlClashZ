@@ -111,6 +111,9 @@ class GeoResourceAction extends _$GeoResourceAction {
     }
     if (updating) {
       _startUpdating(geoResource);
+      if (system.isWindows) {
+        ref.read(resourcesActionProvider.notifier).geoStarted(geoResource);
+      }
     } else {
       _requests.remove(geoResource);
       _stopUpdating(geoResource);

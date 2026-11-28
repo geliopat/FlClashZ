@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Profile resource refresh now credits a Geo completion only when a locally issued request, observed start and accepted RPC belong to the same applied profile generation. The released Z3 event lacks request and source URL identity; this is conservative client correlation, not proof of provenance. Passive/obsolete completions cannot mark the next profile refreshed. Ambiguous events remain eligible for retry; native timers and source URLs remain unchanged. Regression added, execution pending.
+
 - Z3 experimental QUIC GSO/ECN settings are process-scoped: the pinned executor only sets environment flags to true and never unsets them on false. The client labels these options as requiring a full core-process restart, including profile switches. No automatic restart is introduced. Verify changed true/false settings on actual Windows with a fresh core process; a live profile apply must not be represented as proof of a changed QUIC runtime setting. Other supported parameters remain intact.
 - Semantic text-only network palette for connections, sidebar traffic and dashboard graphs, fixed hues and contrast adjustment; zero grey. Current contrast calculation uses estimated Flutter surface, not actual DWM backdrop. Validate real materials, stripe backgrounds and mutual color distinction.
 - Active connections tab first, reset to live when entering the section, while retaining both feed widgets. Re-entry regression added; sidebar routing and transient search/scroll reset remain pending.
