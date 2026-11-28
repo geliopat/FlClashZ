@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:fl_clash/ui/color.dart';
+import 'package:fl_clash/ui/hover_glow.dart';
 import 'package:fl_clash/ui/context.dart';
 import 'package:fl_clash/ui/input.dart';
 import 'package:fl_clash/ui/liquid_glass.dart';
@@ -44,7 +45,8 @@ Future<T?> showFloatingDialog<T>({
 }) {
   return Navigator.of(context).push<T>(
     _AlertRoute<T>(
-      barrierColor: context.colorScheme.alertScrim,
+      barrierColor: Theme.of(context).platform == TargetPlatform.windows
+          ? panelScrimOf(context) : context.colorScheme.alertScrim,
       barrierDismissible: dismissible,
       barrierLabel: dismissible
           ? MaterialLocalizations.of(context).modalBarrierDismissLabel
@@ -354,11 +356,16 @@ class CommonDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final actions = this.actions ?? const <Widget>[];
     final contentInset = hasFields ? _actionInset : _textInset;
-    final glass = LiquidGlassScope.of(context);
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
+    final glass = !windows && LiquidGlassScope.of(context);
     final colorScheme = context.colorScheme;
     final fill = glass ? glassFillOf(colorScheme) : null;
     final dialog = AlertDialog(
-      backgroundColor: glass ? Colors.transparent : null,
+      backgroundColor: windows ? panelSurfaceOf(colorScheme) :
+          glass ? Colors.transparent : null,
+      elevation: windows ? 0 : null,
+      shadowColor: windows ? Colors.transparent : null,
+      surfaceTintColor: windows ? Colors.transparent : null,
       titleTextStyle: hasFields
           ? AppTextStyle.body.of(context)
           : AppTextStyle.headline.of(context),
@@ -622,6 +629,7 @@ class _AlertAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = context.colorScheme;
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
     final fill = this.fill ?? context.raisedSurfaceLevel.colorOf(colorScheme);
     final foreground = isDefault
         ? colorScheme.onPrimary
@@ -662,11 +670,17 @@ class _AlertAction extends StatelessWidget {
                 ),
                 WidgetState.any: background,
               }),
-              overlayColor: WidgetStateProperty<Color?>.fromMap({
-                WidgetState.focused: foreground.withValues(alpha: 0.1),
-                WidgetState.pressed: Colors.transparent,
-                WidgetState.hovered: foreground.withValues(alpha: 0.08),
-              }),
+              overlayColor: windows
+                  ? const WidgetStatePropertyAll(Colors.transparent)
+                  : WidgetStateProperty<Color?>.fromMap({
+                      WidgetState.focused: foreground.withValues(alpha: 0.1),
+                      WidgetState.pressed: Colors.transparent,
+                      WidgetState.hovered: foreground.withValues(alpha: 0.08),
+                    }),
+              backgroundBuilder: windows ? (context, states, child) =>
+                  hoverGlowForeground(context, child ?? const SizedBox.shrink(),
+                    hovered: states.contains(WidgetState.hovered) &&
+                        !states.contains(WidgetState.disabled)) : null,
               side: focusRingStyle(colorScheme, standsOff: isDefault).side,
             ),
       ),

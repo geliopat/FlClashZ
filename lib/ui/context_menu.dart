@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'focus.dart';
+import 'inherited.dart';
 import 'popup.dart';
 import 'sortable.dart';
 import 'surface.dart';
@@ -37,6 +38,7 @@ class _ContextMenuRegionState extends State<ContextMenuRegion> {
     final items = widget.menuItems;
     return items != null &&
         items.isNotEmpty &&
+        PageActivityScope.isActiveOf(context) &&
         !SortableItem.isSorting(context);
   }
 
@@ -85,6 +87,7 @@ class _ContextMenuRegionState extends State<ContextMenuRegion> {
   }
 
   void _open(Offset globalPosition, {bool avoid = false}) {
+    if (!mounted || !_enabled || _menu != null) return;
     final items = widget.menuItems;
     final navigator = Navigator.maybeOf(context);
     final navigatorBox = navigator?.context.findRenderObject();

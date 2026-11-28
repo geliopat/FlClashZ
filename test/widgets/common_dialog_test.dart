@@ -102,6 +102,25 @@ double _dialogOpacity(WidgetTester tester) => tester
     .value;
 
 void main() {
+  testWidgets('Windows modal scrim and surfaces share the theme without shadows', (tester) async {
+    for (final brightness in Brightness.values) {
+      final scheme = ColorScheme.fromSeed(seedColor: Colors.blue, brightness: brightness);
+      late BuildContext context;
+      await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.windows, colorScheme: scheme).withAppSurfaces,
+        home: Builder(builder: (value) {
+          context = value;
+          return const SizedBox.shrink();
+        }),
+      ));
+      expect(panelScrimOf(context).a, closeTo(.15, .001));
+      expect(popupSurfaceOf(context).a, 1);
+      expect(Theme.of(context).dialogTheme.backgroundColor, panelSurfaceOf(scheme));
+      expect(Theme.of(context).dialogTheme.elevation, 0);
+      expect(Theme.of(context).popupMenuTheme.elevation, 0);
+    }
+  });
+
   testWidgets('two short actions share a row, the default one at the end', (
     tester,
   ) async {

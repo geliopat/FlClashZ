@@ -8,6 +8,8 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
+- Windows floating appearance: menu platter and nested menu use a common opaque theme-matched raised surface without legacy elevation shadows or liquid-glass rims; menu hover uses the shared glow, not a filled row. Modal dialogs use the shared 15% scrim and opaque workspace-colored background; standard dialog/popup theme defaults remove elevation and tint. Context menus reject duplicate opens and close when their page is inactive. Added theme regression; keyboard focus behavior, specialized panel material and real Windows contrast remain to be verified.
+
 - Windows shared card/button appearance: common cards and interactive dashboard cards/blocks use shared foreground HoverGlow without ink overlays; dashboard cards no longer paint legacy elevation shadows by default. Header icon buttons use the common tonal theme and explicit button material. Grouped toolbar buttons no longer paint the old iPad hover pill on Windows. Focus rings and functional selected/error states retained. Shared foreground hover regression added; physical Windows backdrop/contrast and remaining specialized controls pending.
 
 - Section navigation waits for the asynchronous CommonPopScope confirmation of the actual route rather than treating the initial Flutter veto as final. A cancelled or failed save stays in the current section; an accepted close continues the requested transition. Duplicate close requests share the pending answer and a late confirmation cannot pop a different route. Added widget regressions for accept/cancel and overlapping requests; execution pending.

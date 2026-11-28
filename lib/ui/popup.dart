@@ -4,6 +4,7 @@ import 'dart:ui' as ui show Image;
 import 'dart:ui' show ImageFilter, lerpDouble;
 
 import 'package:fl_clash/ui/color.dart';
+import 'package:fl_clash/ui/hover_glow.dart';
 import 'package:fl_clash/ui/context.dart';
 import 'package:fl_clash/ui/cursor.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
@@ -313,7 +314,8 @@ class CommonPopupRoute<T> extends PopupRoute<T> {
     Widget child,
   ) {
     final colorScheme = context.colorScheme;
-    final glass = LiquidGlassScope.of(context);
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
+    final glass = !windows && LiquidGlassScope.of(context);
     return Stack(
       children: [
         Positioned.fill(child: _buildDismissLayer()),
@@ -334,10 +336,8 @@ class CommonPopupRoute<T> extends PopupRoute<T> {
               surface: _surface,
               sourceColor: sourceColor,
               sourceImage: sourceImage,
-              surfaceColor: SurfaceLevel.floatingOf(
-                colorScheme,
-              ).colorOf(colorScheme),
-              shadows: menuShadows(colorScheme),
+              surfaceColor: popupSurfaceOf(context),
+              shadows: windows ? const [] : menuShadows(colorScheme),
               glass: glass
                   ? (
                       from: LiquidGlassStyle.regular(colorScheme),
@@ -2288,16 +2288,18 @@ class _CommonPopupMenuState extends State<CommonPopupMenu>
     }
     // A press is the menu's to follow across the rows, so the row's own ink
     // only shows hover and focus.
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
     final child = InkWell(
       mouseCursor: clickableCursor,
       customBorder: AppShape.all(_itemRadius),
       onTap: onTap,
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
-      hoverColor: item.danger ? colorScheme.error.opacity10 : null,
+      hoverColor: windows ? Colors.transparent :
+          item.danger ? colorScheme.error.opacity10 : null,
       child: DecoratedBox(
         decoration: ShapeDecoration(
-          color: pressed ? Theme.of(context).highlightColor : null,
+          color: pressed && !windows ? Theme.of(context).highlightColor : null,
           shape: AppShape.all(_itemRadius),
         ),
         child: Padding(
@@ -2355,7 +2357,7 @@ class _CommonPopupMenuState extends State<CommonPopupMenu>
         button: true,
         enabled: enabled,
         checked: item.checked,
-        child: child,
+        child: windows ? HoverGlowRegion(enabled: enabled, child: child) : child,
       ),
     );
   }
@@ -2479,11 +2481,12 @@ class _CommonPopupMenuState extends State<CommonPopupMenu>
     final receding = depth > 0;
     final step = receding ? null : level.step;
     final colorScheme = context.colorScheme;
-    final glass = LiquidGlassScope.of(context)
+    final windows = Theme.of(context).platform == TargetPlatform.windows;
+    final glass = !windows && LiquidGlassScope.of(context)
         ? LiquidGlassStyle.menu(colorScheme)
         : null;
     final rim = glass == null ? null : LiquidGlassRim.menu(colorScheme);
-    final fill = SurfaceLevel.floatingOf(colorScheme).colorOf(colorScheme);
+    final fill = popupSurfaceOf(context);
     // A card behind a sub menu takes a tap as one outside that sub menu.
     return GestureDetector(
       excludeFromSemantics: true,
@@ -2522,7 +2525,7 @@ class _CommonPopupMenuState extends State<CommonPopupMenu>
                             top: step.itemTop - level.top,
                             height: step.itemHeight,
                           ),
-                    shadows: menuShadows(colorScheme, shadow),
+                    shadows: windows ? const [] : menuShadows(colorScheme, shadow),
                     fill: fill,
                     dim: colorScheme.surface.withValues(
                       alpha: math.min(0.4, _levelFadeStep * distance),

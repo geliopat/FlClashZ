@@ -17,6 +17,14 @@ Color panelScrimOf(BuildContext context) {
 Color panelSurfaceOf(ColorScheme scheme) =>
     SurfaceLevel.page.colorOf(scheme).withValues(alpha: 1);
 
+/// Floating menus use an opaque, slightly raised theme surface on Windows.
+/// Unlike a modal panel, a menu does not need to dim the entire workspace.
+Color popupSurfaceOf(BuildContext context) {
+  final theme = Theme.of(context);
+  final fill = SurfaceLevel.floatingOf(theme.colorScheme).colorOf(theme.colorScheme);
+  return theme.platform == TargetPlatform.windows ? fill.withValues(alpha: 1) : fill;
+}
+
 /// `.agents/surfaces.md` explains the levels and why dark mode never steps
 /// back down.
 enum SurfaceLevel {
@@ -175,8 +183,19 @@ extension AppSurfaceThemeExt on ThemeData {
       ),
       scaffoldBackgroundColor: page,
       cardTheme: cardTheme.copyWith(color: card, elevation: 0),
-      dialogTheme: dialogTheme.copyWith(backgroundColor: floating),
-      popupMenuTheme: popupMenuTheme.copyWith(color: floating),
+      dialogTheme: dialogTheme.copyWith(
+        backgroundColor: platform == TargetPlatform.windows
+            ? panelSurfaceOf(colorScheme) : floating,
+        elevation: platform == TargetPlatform.windows ? 0 : null,
+        shadowColor: platform == TargetPlatform.windows ? Colors.transparent : null,
+        surfaceTintColor: platform == TargetPlatform.windows ? Colors.transparent : null,
+      ),
+      popupMenuTheme: popupMenuTheme.copyWith(
+        color: platform == TargetPlatform.windows ? floating.withValues(alpha: 1) : floating,
+        elevation: platform == TargetPlatform.windows ? 0 : null,
+        shadowColor: platform == TargetPlatform.windows ? Colors.transparent : null,
+        surfaceTintColor: platform == TargetPlatform.windows ? Colors.transparent : null,
+      ),
       menuTheme: MenuThemeData(
         style: (menuTheme.style ?? const MenuStyle()).copyWith(
           backgroundColor: WidgetStatePropertyAll(floating),
