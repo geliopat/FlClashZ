@@ -33,6 +33,7 @@ class AdditionalMihomoSettingsView extends ConsumerWidget {
     final initial = yaml.encode({path: value});
     await BaseNavigator.push<void>(context, EditorPage(
       title: path, content: initial, readOnly: false,
+      allowUnchangedSave: true,
       onSave: (editorContext, _, content) async {
         try {
           final decoded = decodeAdditionalSettings(await content.readText());

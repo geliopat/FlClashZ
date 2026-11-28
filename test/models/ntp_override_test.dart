@@ -58,6 +58,16 @@ void main() {
       expect(json['port'], 1230);
     });
 
+    test('explicit empty dialer clears inheritance without blanking server', () {
+      const ntp = Ntp(server: '', dialerProxy: '');
+      const keys = {NtpOverrideKey.dialerProxy, NtpOverrideKey.server};
+      expect(ntp.overrideJson(keys), isEmpty);
+      expect(ntp.overrideJson(keys, keepEmpty: true), {'dialer-proxy': ''});
+      final restored = ntp.applyOverrideYaml(ntp.overrideYaml(keys, keepEmpty: true));
+      expect(restored.keys, {NtpOverrideKey.dialerProxy});
+      expect(restored.ntp.dialerProxy, '');
+    });
+
     test('is empty without keys', () {
       expect(const Ntp().overrideJson({}), isEmpty);
     });

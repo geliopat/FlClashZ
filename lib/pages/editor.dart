@@ -95,6 +95,10 @@ class EditorPage extends ConsumerStatefulWidget {
   final Language language;
   final bool titleEditable;
 
+  /// An explicit save can establish ownership even without editing the text.
+  /// Closing an unchanged editor still never saves automatically.
+  final bool allowUnchangedSave;
+
   /// A returned future is the save still running: until it completes the
   /// page takes no second save and no pointer.
   final FutureOr<void> Function(
@@ -120,6 +124,7 @@ class EditorPage extends ConsumerStatefulWidget {
     this.content,
     this.load,
     this.titleEditable = false,
+    this.allowUnchangedSave = false,
     this.onSave,
     this.onPop,
     this.readOnly,
@@ -295,7 +300,8 @@ class _EditorPageState extends ConsumerState<EditorPage>
       return;
     }
     _commitComposing();
-    if (!_isDirty) {
+    if ((!_isDirty && !widget.allowUnchangedSave) ||
+        _editor?.controller == null) {
       return;
     }
     final route = ModalRoute.of(context);
@@ -378,7 +384,8 @@ class _EditorPageState extends ConsumerState<EditorPage>
                 : IconButtonData(
                     glyph: AppGlyphs.check,
                     tooltip: appLocalizations.save,
-                    onPressed: _barState.isDirty && !_saving
+                    onPressed: (_barState.isDirty || widget.allowUnchangedSave) &&
+                            isReady && !_saving
                         ? _handleSave
                         : null,
                   ),
