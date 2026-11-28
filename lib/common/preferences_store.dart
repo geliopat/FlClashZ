@@ -31,7 +31,18 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
   Map<String, Object> _decode(String raw) {
     final data = json.decode(raw);
     if (data is! Map) throw const FormatException('Preferences map required');
-    return Map<String, Object>.from(data);
+    final values = Map<String, Object>.from(data);
+    // SharedPreferences accepts scalar values and string lists. A syntactically
+    // valid but structurally damaged primary must not displace a good backup.
+    for (final entry in values.entries) {
+      if (!entry.key.startsWith(_defaultPrefix)) continue;
+      final value = entry.value;
+      if (value is! bool && value is! num && value is! String &&
+          !(value is List && value.every((item) => item is String))) {
+        throw const FormatException('Invalid preferences value');
+      }
+    }
+    return values;
   }
 
   Future<Map<String, Object>> _load() async {
@@ -45,7 +56,7 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
         return {};
       }
       final content = await file.readAsString();
-      if (content.isEmpty && (!enableRecovery || !await backup.exists())) return {};
+      if (content.isEmpty && !enableRecovery) return {};
       return _decode(content);
     } catch (_) {
       if (!enableRecovery || !await backup.exists()) rethrow;
@@ -64,12 +75,21 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
 
   Future<bool> _update(void Function(Map<String, Object> values) change) {
     final operation = _lastWrite.catchError((_) => false).then((_) async {
-      final current = await _read();
-      final next = Map<String, Object>.of(current);
-      change(next);
-      if (!await _write(json.encode(next), previous: json.encode(current))) return false;
-      _values = Future.value(next);
-      return true;
+      try {
+        final current = await _read();
+        final next = Map<String, Object>.of(current);
+        change(next);
+        final encoded = json.encode(next);
+        final validated = _decode(encoded);
+        if (!await _write(encoded, previous: json.encode(current))) return false;
+        _values = Future.value(validated);
+        return true;
+      } catch (_) {
+        // A failed read or invalid mutation is also a failed save. Never
+        // replace unreadable existing preferences with an empty map.
+        commonPrint.log('Preferences mutation rejected', logLevel: LogLevel.warning);
+        return false;
+      }
     });
     return _lastWrite = operation;
   }
@@ -116,13 +136,16 @@ class AtomicFilePreferencesStore extends SharedPreferencesStorePlatform {
     final values = await _read();
     return {
       for (final entry in values.entries)
-        if (_matches(filter, entry.key)) entry.key: entry.value,
+        if (_matches(filter, entry.key))
+          entry.key: entry.value is List ? List<Object?>.of(entry.value as List) : entry.value,
     };
   }
 
   @override
   Future<bool> setValue(String valueType, String key, Object value) {
-    return _update((values) => values[key] = value);
+    // Copy mutable input before the asynchronous queue can observe a change.
+    final snapshot = value is List ? List<Object?>.of(value) : value;
+    return _update((values) => values[key] = snapshot);
   }
 
   @override

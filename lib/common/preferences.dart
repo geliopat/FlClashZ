@@ -72,7 +72,10 @@ class Preferences {
 
   Future<void> setVersion(int version) async {
     final preferences = await _store.value;
-    await preferences?.setInt('version', version);
+    if (preferences == null || !await preferences.setInt('version', version)) {
+      await preferences?.reload();
+      throw StateError('Unable to commit data version');
+    }
   }
 
   Future<int> getUpgradeVersion() async {
@@ -82,7 +85,10 @@ class Preferences {
 
   Future<void> setUpgradeVersion(int version) async {
     final preferences = await _store.value;
-    await preferences?.setInt('upgradeVersion', version);
+    if (preferences == null || !await preferences.setInt('upgradeVersion', version)) {
+      await preferences?.reload();
+      throw StateError('Unable to commit upgrade version');
+    }
   }
 
   Future<bool> getLegacyImported() async {
@@ -92,7 +98,10 @@ class Preferences {
 
   Future<void> setLegacyImported() async {
     final preferences = await _store.value;
-    await preferences?.setBool('legacyImported', true);
+    if (preferences == null || !await preferences.setBool('legacyImported', true)) {
+      await preferences?.reload();
+      throw StateError('Unable to commit legacy import marker');
+    }
   }
 
   Future<bool> getPreChannelTipShown() async {
@@ -229,9 +238,23 @@ class Preferences {
           break;
         }
       }
-      if (!await store.setString(configKey, encoded)) return false;
-      if (!await store.setString(_lastGoodConfigKey, encoded)) return false;
-      await recovery?.save(encoded);
+      if (!await store.setString(configKey, encoded)) {
+        // SharedPreferences updates its own cache optimistically before its
+        // platform backend acknowledges the write.
+        await store.reload();
+        return false;
+      }
+      try {
+        if (!await store.setString(_lastGoodConfigKey, encoded)) {
+          await store.reload();
+          commonPrint.log('Settings backup write rejected', logLevel: LogLevel.warning);
+        }
+        await recovery?.save(encoded);
+      } catch (_) {
+        // Primary config was already committed. A backup failure must not
+        // make migration retry an already successful primary write.
+        commonPrint.log('Settings recovery copy write failed', logLevel: LogLevel.warning);
+      }
       return true;
     });
     _configWrite = operation;
@@ -308,12 +331,16 @@ class Preferences {
   Future<void> clearPreferences() async {
     final operation = _configWrite.catchError((_) => false).then((_) async {
       final store = await _store.value;
-      if (store == null || !await store.clear()) return false;
+      if (store == null) return false;
+      if (!await store.clear()) {
+        await store.reload();
+        return false;
+      }
       await (await _recoveryFile())?.clear();
       return true;
     });
     _configWrite = operation;
-    await operation;
+    if (!await operation) throw StateError('Unable to clear preferences');
   }
 }
 

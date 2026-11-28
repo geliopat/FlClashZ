@@ -117,14 +117,10 @@ void main() {
     expect(dirEntries(), ['shared_preferences.json']);
   });
 
-  test('a save that cannot be written leaves the previous file', () async {
+  test('invalid mutation leaves the previous file', () async {
     File(path).writeAsStringSync(json.encode({'flutter.config': 'old'}));
-    Directory('$path.$pid.tmp').createSync();
-
-    expect(
-      await openStore().setValue('String', 'flutter.config', 'new'),
-      isFalse,
-    );
+    final store = openStore();
+    expect(await store.setValue('String', 'flutter.config', {'invalid': true}), isFalse);
     expect(readFile(), {'flutter.config': 'old'});
   });
 
@@ -142,9 +138,14 @@ void main() {
   test('failed mutation is not committed by a later successful save', () async {
     final store = openStore();
     expect(await store.setValue('String', 'flutter.original', 'keep'), isTrue);
-    final obstruction = Directory('$path.$pid.tmp')..createSync();
+    // Current writer uses unique staging directories, not a PID temp name.
+    // Force rename failure by occupying the actual destination after load.
+    final previous = File(path).renameSync('$path.original');
+    final obstruction = Directory(path)..createSync();
+    File(join(path, 'occupied')).createSync();
     expect(await store.setValue('String', 'flutter.failed', 'discard'), isFalse);
-    await obstruction.delete();
+    await obstruction.delete(recursive: true);
+    previous.renameSync(path);
     expect(await store.setValue('String', 'flutter.next', 'ok'), isTrue);
     expect(readFile(), {'flutter.original': 'keep', 'flutter.next': 'ok'});
   });
@@ -166,6 +167,34 @@ void main() {
       (file) => file.path.contains('.corrupt-'),
     );
     expect(await evidence.readAsString(), damaged);
+  });
+
+  test('valid JSON with an invalid preference type recovers full backup', () async {
+    final store = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    expect(await store.setValue('Bool', 'flutter.enabled', false), isTrue);
+    await File(path).writeAsString('{"flutter.enabled":{"bad":true}}', flush: true);
+    final reopened = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    expect(await reopened.getAll(), {'flutter.enabled': false});
+  });
+
+  test('empty damaged primary without backup cannot be silently overwritten', () async {
+    await File(path).writeAsString('');
+    final store = AtomicFilePreferencesStore(Future.value(path), enableRecovery: true);
+    await expectLater(store.getAll(), throwsFormatException);
+    expect(await store.setValue('Bool', 'flutter.enabled', true), isFalse);
+    expect(await File(path).readAsString(), isEmpty);
+  });
+
+  test('queued list writes and returned lists do not alias the store', () async {
+    final store = openStore();
+    final value = ['a'];
+    final write = store.setValue('StringList', 'flutter.list', value);
+    value.add('late');
+    expect(await write, isTrue);
+    final first = await store.getAll();
+    (first['flutter.list'] as List).add('returned');
+    expect(await store.getAll(), {'flutter.list': ['a']});
+    expect(readFile(), {'flutter.list': ['a']});
   });
 
   test('explicit clear updates backup and never resurrects cleared settings', () async {
