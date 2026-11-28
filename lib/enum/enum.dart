@@ -234,8 +234,6 @@ enum FindProcessMode { always, strict, off }
 
 enum InterfaceNameMode { clear, follow, custom }
 
-enum RestoreOption { all, onlyProfiles }
-
 enum ProxiesType { tab, list }
 
 enum ProxiesLayout { loose, standard, tight }
@@ -823,8 +821,6 @@ enum RuleProviderBehavior { domain, ipcidr, classical }
 
 enum RuleProviderFormat { yaml, text, mrs }
 
-enum RestoreStrategy { compatible, override }
-
 enum TabAnimation { slide, fade }
 
 enum LiquidGlassMode { none, standard, ultra }
@@ -840,7 +836,6 @@ enum LoadingTag {
   scripts,
   ruleProviders,
   iconSets,
-  backup_restore,
   access,
   proxies,
   checkUpdate,

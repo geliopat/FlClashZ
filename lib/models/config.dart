@@ -346,7 +346,6 @@ abstract class AppSettingProps with _$AppSettingProps {
     @Default(false) bool menuBarMode,
     @Default(false) bool hidden,
     @Default(false) bool developerMode,
-    @Default(RestoreStrategy.compatible) RestoreStrategy restoreStrategy,
     @Default(true) bool showTrayTitle,
     @Default(true) bool monochromeTrayIcon,
     // Retired from the settings: a stored or restored false is never read back.
@@ -641,7 +640,6 @@ abstract class Config with _$Config {
     @JsonKey(fromJson: AppSettingProps.safeFromJson)
     @Default(defaultAppSettingProps)
     AppSettingProps appSettingProps,
-    DAVProps? davProps,
     @Default(defaultNetworkProps) NetworkProps networkProps,
     @Default(defaultVpnProps) VpnProps vpnProps,
     @JsonKey(fromJson: ThemeProps.safeFromJson) required ThemeProps themeProps,

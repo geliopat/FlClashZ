@@ -107,8 +107,6 @@ void main() {
           base.copyWith.appSettingProps(requestFeed: value),
         for (final value in TabAnimation.values)
           base.copyWith.appSettingProps(tabAnimation: value),
-        for (final value in RestoreStrategy.values)
-          base.copyWith.appSettingProps(restoreStrategy: value),
         for (final value in EditorFontSize.values)
           base.copyWith.appSettingProps(editorFontSize: value),
         for (final value in AccessControlMode.values)
@@ -202,6 +200,10 @@ void main() {
       );
       final raw = jsonDecode(jsonEncode(old)) as Map<String, Object?>;
       raw['futureSetting'] = {'enabled': false, 'value': 0};
+      raw['dav'] = {'password': 'retired'};
+      raw['davProps'] = {'password': 'retired'};
+      (raw['appSettingProps'] as Map)['restoreStrategy'] = 'override';
+      (raw['appSettingProps'] as Map)['recoveryStrategy'] = 'compatible';
       (raw['appSettingProps'] as Map)['futureOption'] = [];
       (raw['patchClashConfig'] as Map)['future-tunable'] = 'keep';
       await store.setString(configKey, jsonEncode(raw));
@@ -209,6 +211,10 @@ void main() {
       expect(await preferences.saveConfig(next), isTrue);
       final saved = (await preferences.getConfigMap())!;
       expect(saved['futureSetting'], raw['futureSetting']);
+      expect(saved.containsKey('dav'), isFalse);
+      expect(saved.containsKey('davProps'), isFalse);
+      expect((saved['appSettingProps'] as Map).containsKey('restoreStrategy'), isFalse);
+      expect((saved['appSettingProps'] as Map).containsKey('recoveryStrategy'), isFalse);
       expect((saved['appSettingProps'] as Map)['futureOption'], isEmpty);
       expect((saved['patchClashConfig'] as Map)['future-tunable'], 'keep');
       expect((saved['patchClashConfig'] as Map)['hosts'], isEmpty);

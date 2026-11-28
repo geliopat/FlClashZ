@@ -704,11 +704,10 @@ void main() {
       final vpnProps = configMap['vpnProps']! as Map;
       expect((vpnProps['accessControl'] as Map)['enable'], isTrue);
       expect(vpnProps['accessControlProps'], vpnProps['accessControl']);
-      expect((configMap['davProps'] as Map)['uri'], 'https://dav.example');
-      expect(
-        (configMap['appSettingProps'] as Map)['restoreStrategy'],
-        'compatible',
-      );
+      expect(configMap.containsKey('dav'), isFalse);
+      expect(configMap.containsKey('davProps'), isFalse);
+      expect((configMap['appSettingProps'] as Map).containsKey('restoreStrategy'), isFalse);
+      expect((configMap['appSettingProps'] as Map).containsKey('recoveryStrategy'), isFalse);
       expect(configMap['proxiesStyleProps'], configMap['proxiesStyle']);
     });
 

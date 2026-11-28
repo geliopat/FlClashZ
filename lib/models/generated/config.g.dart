@@ -57,9 +57,6 @@ _AppSettingProps _$AppSettingPropsFromJson(
   menuBarMode: json['menuBarMode'] as bool? ?? false,
   hidden: json['hidden'] as bool? ?? false,
   developerMode: json['developerMode'] as bool? ?? false,
-  restoreStrategy:
-      $enumDecodeNullable(_$RestoreStrategyEnumMap, json['restoreStrategy']) ??
-      RestoreStrategy.compatible,
   showTrayTitle: json['showTrayTitle'] as bool? ?? true,
   monochromeTrayIcon: json['monochromeTrayIcon'] as bool? ?? true,
   filters: json['filters'] == null
@@ -137,7 +134,6 @@ Map<String, dynamic> _$AppSettingPropsToJson(_AppSettingProps instance) =>
       'menuBarMode': instance.menuBarMode,
       'hidden': instance.hidden,
       'developerMode': instance.developerMode,
-      'restoreStrategy': _$RestoreStrategyEnumMap[instance.restoreStrategy]!,
       'showTrayTitle': instance.showTrayTitle,
       'monochromeTrayIcon': instance.monochromeTrayIcon,
       'filters': instance.filters,
@@ -163,11 +159,6 @@ const _$RequestFeedEnumMap = {
 const _$TabAnimationEnumMap = {
   TabAnimation.slide: 'slide',
   TabAnimation.fade: 'fade',
-};
-
-const _$RestoreStrategyEnumMap = {
-  RestoreStrategy.compatible: 'compatible',
-  RestoreStrategy.override: 'override',
 };
 
 const _$EditorFontSizeEnumMap = {
@@ -454,9 +445,6 @@ _Config _$ConfigFromJson(Map<String, dynamic> json) => _Config(
       : AppSettingProps.safeFromJson(
           json['appSettingProps'] as Map<String, Object?>?,
         ),
-  davProps: json['davProps'] == null
-      ? null
-      : DAVProps.fromJson(json['davProps'] as Map<String, dynamic>),
   networkProps: json['networkProps'] == null
       ? defaultNetworkProps
       : NetworkProps.fromJson(json['networkProps'] as Map<String, dynamic>?),
@@ -490,7 +478,6 @@ Map<String, dynamic> _$ConfigToJson(_Config instance) => <String, dynamic>{
   'currentProfileId': instance.currentProfileId,
   'hotKeyActions': instance.hotKeyActions,
   'appSettingProps': instance.appSettingProps,
-  'davProps': instance.davProps,
   'networkProps': instance.networkProps,
   'vpnProps': instance.vpnProps,
   'themeProps': instance.themeProps,

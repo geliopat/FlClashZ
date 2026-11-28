@@ -114,7 +114,7 @@ class Migration {
   static const currentVersion = 1;
 
   /// One-off setting changes for upgrades, apart from [currentVersion], which
-  /// backups carry and an older app refuses when it is newer than its own.
+  /// identifies the local settings format.
   static const upgradeVersion = 4;
 
   static const Map<int, Config Function(Config config)> _upgrades = {
@@ -223,12 +223,8 @@ class Migration {
         config = Config.realFromJson(configMap);
       }
       if (config != null) {
-        final storedDavPassword = _getStoredDavPassword(configMap);
-        final hasPlainTextDavPassword =
-            storedDavPassword != null &&
-            storedDavPassword == config.davProps?.password;
-        if (hasPlainTextDavPassword && !await _store.saveConfig(config)) {
-          throw StateError('Failed to obfuscate the legacy WebDAV password');
+        if (_hasRetiredBackupSettings(configMap) && !await _store.saveConfig(config)) {
+          throw StateError('Failed to remove retired backup settings');
         }
         return config;
       }
@@ -324,13 +320,12 @@ Config _unchanged(Config config) => config;
 bool _isV0(Map<String, Object?>? configMap) =>
     configMap?['proxiesStyle'] != null;
 
-String? _getStoredDavPassword(Map<String, Object?>? configMap) {
-  final dav = configMap?['davProps'] ?? configMap?['dav'];
-  if (dav is! Map) {
-    return null;
-  }
-  final password = dav['password'];
-  return password is String && password.isNotEmpty ? password : null;
+bool _hasRetiredBackupSettings(Map<String, Object?>? map) {
+  if (map == null) return false;
+  final app = map['appSettingProps'];
+  return map.containsKey('dav') || map.containsKey('davProps') ||
+      (app is Map && (app.containsKey('restoreStrategy') ||
+          app.containsKey('recoveryStrategy')));
 }
 
 final migration = Migration(

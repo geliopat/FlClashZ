@@ -11,13 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('Migration', () {
     test('returns current config without rewriting storage', () async {
-      final configMap = _createConfigMap(
-        davProps: const DAVProps(
-          uri: 'https://example.com/dav',
-          user: 'user',
-          password: 'secret',
-        ),
-      );
+      final configMap = _createConfigMap();
       final store = _FakeMigrationStore(
         configMap: configMap,
         version: Migration.currentVersion,
@@ -26,38 +20,22 @@ void main() {
       final config = await Migration(store: store).run();
 
       expect(config, Config.realFromJson(configMap));
-      expect(config.davProps?.password, 'secret');
       expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion']);
     });
 
-    test(
-      'obfuscates a compatible DAV password without a version migration',
-      () async {
-        final configMap = _createConfigMap(
-          davProps: const DAVProps(
-            uri: 'https://example.com/dav',
-            user: 'user',
-          ),
-        );
-        final davProps = configMap['davProps']! as Map<String, Object?>;
-        davProps['password'] = 'secret';
-        final store = _FakeMigrationStore(configMap: configMap, version: 1);
-
-        final config = await Migration(store: store).run();
-
-        expect(config.davProps?.user, 'user');
-        expect(config.davProps?.password, 'secret');
-        expect(store.savedConfig, config);
-        expect(store.version, Migration.currentVersion);
-        expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion', 'saveConfig']);
-        final savedConfigMap =
-            jsonDecode(jsonEncode(store.savedConfig)) as Map<String, Object?>;
-        final savedDavProps =
-            savedConfigMap['davProps']! as Map<String, Object?>;
-        expect(savedDavProps['password'], startsWith('v1.'));
-        expect(savedDavProps['password'], isNot(contains('secret')));
-      },
-    );
+    test('removes retired backup settings without losing other settings', () async {
+      final configMap = _createConfigMap()
+        ..['davProps'] = {'password': 'secret'}
+        ..['currentProfileId'] = 42;
+      (configMap['appSettingProps'] as Map)['restoreStrategy'] = 'override';
+      final store = _FakeMigrationStore(configMap: configMap, version: 1);
+      final config = await Migration(store: store).run();
+      expect(config.currentProfileId, 42);
+      final saved = jsonDecode(jsonEncode(store.savedConfig)) as Map;
+      expect(saved.containsKey('davProps'), isFalse);
+      expect((saved['appSettingProps'] as Map).containsKey('restoreStrategy'), isFalse);
+      expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion', 'saveConfig']);
+    });
 
     test(
       'commits v0 cleanup and version only after migrated data is saved',
@@ -81,13 +59,7 @@ void main() {
             store.events.add('migrateV0');
             expect(configMap['patchClashConfig'], store.clashConfigMap);
             return MigrationData(
-              configMap: _createConfigMap(
-                davProps: const DAVProps(
-                  uri: 'https://example.com/dav',
-                  user: 'user',
-                  password: 'secret',
-                ),
-              ),
+              configMap: _createConfigMap(),
             );
           },
         );
@@ -105,7 +77,7 @@ void main() {
           'clearClashConfig',
           'setVersion',
         ]);
-        expect(store.savedConfig?.davProps?.password, 'secret');
+        expect(store.savedConfig, isNotNull);
         expect(store.didClearClashConfig, isTrue);
         expect(store.version, Migration.currentVersion);
       },
@@ -530,12 +502,9 @@ void main() {
       expect(store.events, ['getConfigMap', 'isAvailable', 'getVersion']);
     });
 
-    test('keeps the current version when password obfuscation fails', () async {
-      final configMap = _createConfigMap(
-        davProps: const DAVProps(uri: 'https://example.com/dav', user: 'user'),
-      );
-      final davProps = configMap['davProps']! as Map<String, Object?>;
-      davProps['password'] = 'secret';
+    test('keeps the current version when retired settings cleanup fails', () async {
+      final configMap = _createConfigMap()
+        ..['davProps'] = {'password': 'secret'};
       final store = _FakeMigrationStore(
         configMap: configMap,
         version: Migration.currentVersion,
@@ -553,9 +522,9 @@ void main() {
   });
 }
 
-Map<String, Object?> _createConfigMap({DAVProps? davProps}) {
+Map<String, Object?> _createConfigMap() {
   return jsonDecode(
-        jsonEncode(Config(themeProps: defaultThemeProps, davProps: davProps)),
+        jsonEncode(Config(themeProps: defaultThemeProps)),
       )
       as Map<String, Object?>;
 }

@@ -8,7 +8,7 @@ Follow the permanent [obsolete-functionality and UI integration principles](core
 
 ## Candidate changes, pending CI
 
-- User-directed removal: local and WebDAV backup/restore UI, archive engine, network transport, Riverpod backup action and live DAV provider, and feature-specific tests removed. Keep profile and script migrations, individual profile import/export, log export, last-known-good settings recovery and update rollback. Old serialized DAV and restore strategy fields remain temporarily for compatibility; the live configuration no longer carries a DAV account. Verify clean build and no backup entry in both settings modes.
+- User-directed removal: local and WebDAV backup/restore UI, archive engine, network transport, Riverpod backup action and live DAV provider, and feature-specific tests removed. Keep profile and script migrations, individual profile import/export, log export, last-known-good settings recovery and update rollback. Retired DAV and restore strategy fields are removed from the model and serialization; migration recognizes old keys and saves without them. Unknown-settings preservation explicitly excludes the retired keys. Historic recovery files may still contain old values until refreshed; no claim of secure erasure. Verify clean build and no backup entry in both settings modes.
 
 
 

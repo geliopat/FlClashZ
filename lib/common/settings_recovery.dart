@@ -61,8 +61,9 @@ Map<String, Object?> preserveUnknownSettings(
     'patchClashConfig.dns', 'patchClashConfig.dns.fallback-filter',
   };
   const retired = {
-    'overrideDns', 'dav', 'proxiesStyle', 'networkProps.routeMode',
-    'appSettingProps.checkCertificate',
+    'overrideDns', 'dav', 'davProps', 'proxiesStyle', 'networkProps.routeMode',
+    'appSettingProps.checkCertificate', 'appSettingProps.restoreStrategy',
+    'appSettingProps.recoveryStrategy',
   };
   Map<String, Object?> merge(Map<String, Object?> old, Map<String, Object?> fresh, String prefix) {
     final result = Map<String, Object?>.of(fresh);

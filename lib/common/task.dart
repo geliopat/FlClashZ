@@ -637,13 +637,13 @@ Future<MigrationData> migrateLegacyConfig({
     final vpnPropsRaw = configMap['vpnProps'] as Map;
     vpnPropsRaw['accessControlProps'] = vpnPropsRaw['accessControl'];
   }
-  configMap['davProps'] = configMap['dav'];
+  configMap.remove('dav');
+  configMap.remove('davProps');
   final appSettingProps = Map<String, dynamic>.from(
     configMap['appSetting'] as Map? ?? const {},
   );
-  if (appSettingProps['recoveryStrategy'] != null) {
-    appSettingProps['restoreStrategy'] = appSettingProps['recoveryStrategy'];
-  }
+  appSettingProps.remove('recoveryStrategy');
+  appSettingProps.remove('restoreStrategy');
   appSettingProps['ownedSettings'] = {
     ...?(appSettingProps['ownedSettings'] as List?)?.cast<String>(),
     if (appSettingProps['overrideNetworkSettings'] == true)
