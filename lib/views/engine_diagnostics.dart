@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fl_clash/core/event.dart';
+import 'package:fl_clash/ui/inherited.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
@@ -10,8 +11,17 @@ import 'package:material_ui/material_ui.dart';
 
 /// Explicit in-memory recording. Never export endpoints to the general
 /// diagnostic report; the core owns both bounded histories.
+enum EngineDiagnosticsSection { closed, chains }
+
 class EngineDiagnosticsView extends ConsumerStatefulWidget {
-  const EngineDiagnosticsView({super.key});
+  const EngineDiagnosticsView({
+    super.key,
+    required this.section,
+    this.titleWidget,
+  });
+
+  final EngineDiagnosticsSection section;
+  final Widget? titleWidget;
 
   @override
   ConsumerState<EngineDiagnosticsView> createState() => _EngineDiagnosticsViewState();
@@ -26,8 +36,12 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
       generation == _generation &&
       ref.read(coreStatusProvider) == CoreStatus.connected;
 
-  bool get _visible => mounted && ModalRoute.of(context)?.isCurrent != false &&
-      TickerMode.valuesOf(context).enabled;
+  bool get _showClosed => widget.section == EngineDiagnosticsSection.closed;
+  bool get _visible => mounted &&
+      PageActivityScope.isActiveOf(context) &&
+      ModalRoute.of(context)?.isCurrent != false &&
+      TickerMode.valuesOf(context).enabled &&
+      ref.read(appVisibleProvider);
   bool _supported = false;
   String? _error;
   int _capacity = 0;
@@ -50,14 +64,14 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
         _supported = false; _capacity = 0; _chain = false; _closed = const []; _chains = const [];
       });
       if (next == CoreStatus.connected) {
-        Future.microtask(() { if (mounted) _load(); });
+        Future.microtask(() { if (_visible) _load(); });
       }
     });
-    Future.microtask(() { if (mounted && ref.read(coreStatusProvider) == CoreStatus.connected) _load(); });
+    Future.microtask(() { if (_visible && ref.read(coreStatusProvider) == CoreStatus.connected) _load(); });
     // Poll only the open, visible page; no background network probe is
     // initiated by the UI. Chain health itself remains owned by the core.
     _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (_visible && !_busy && (_capacity > 0 || _chain) &&
+      if (_visible && !_busy &&
           ref.read(coreStatusProvider) == CoreStatus.connected) {
         _load();
       }
@@ -74,7 +88,7 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
 
   @override
   void onClosedFlowChanged() {
-    if (_visible && !_busy && _capacity > 0 &&
+    if (_showClosed && _visible && !_busy && _capacity > 0 &&
         ref.read(coreStatusProvider) == CoreStatus.connected) {
       _load();
     }
@@ -104,14 +118,19 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
         });
         return;
       }
-      if (capacity != null || chain != null) {
-        await core.setEngineDiagnostics(
-          closedFlowCapacity: capacity ?? _capacity,
-          chainDiagnostics: chain ?? _chain,
-        );
-      }
+      var snapshot = await core.getEngineDiagnostics();
       if (!_isCurrent(generation)) return;
-      final snapshot = await core.getEngineDiagnostics();
+      if (capacity != null || chain != null) {
+        // Each control updates only its setting; preserve the other native
+        // setting even after another page has changed it.
+        final current = snapshot['settings'] as Map;
+        await core.setEngineDiagnostics(
+          closedFlowCapacity: capacity ?? current['closedFlowCapacity'] as int,
+          chainDiagnostics: chain ?? current['chainDiagnostics'] as bool,
+        );
+        if (!_isCurrent(generation)) return;
+        snapshot = await core.getEngineDiagnostics();
+      }
       if (!_isCurrent(generation)) return;
       final settings = snapshot['settings'] as Map;
       List<Map<String, dynamic>> rows(String key) => [
@@ -145,9 +164,12 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
   Widget build(BuildContext context) {
     final connected = ref.watch(coreStatusProvider) == CoreStatus.connected;
     final enabled = connected && _supported && !_busy;
-    final count = _closed.length + _chains.length;
+    final count = _showClosed ? _closed.length : _chains.length;
     return CommonScaffold(
-      title: _tr('Диагностика ядра', 'Core diagnostics'),
+      title: _showClosed
+          ? _tr('Закрытые соединения', 'Closed connections')
+          : _tr('Диагностика цепочек', 'Chain diagnostics'),
+      titleWidget: widget.titleWidget,
       body: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16).copyWith(
           top: context.sectionsTopPadding,
@@ -166,14 +188,14 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
                       ? _tr('Записей: $count', 'Records: $count')
                       : _tr('Требуется совместимый адаптер ядра', 'Compatible core adapter required'))),
                 ),
-                ListItem(
+                if (_showClosed) ListItem(
                   title: Text(_tr('Закрытые соединения', 'Closed connections')),
                   subtitle: Text(_tr('До 1024 записей в памяти; счётчики на момент закрытия',
                       'Up to 1024 in-memory records; counters at removal')),
                   trailing: Switch(value: _capacity > 0,
                       onChanged: enabled ? (value) => _load(capacity: value ? 1024 : 0) : null),
                 ),
-                ListItem(
+                if (!_showClosed) ListItem(
                   title: Text(_tr('Диагностика цепочек', 'Chain diagnostics')),
                   subtitle: Text(_tr('До 256 попыток; не проверка доступности всего каскада',
                       'Up to 256 dial attempts; not an end-to-end health check')),
@@ -183,14 +205,14 @@ class _EngineDiagnosticsViewState extends ConsumerState<EngineDiagnosticsView> w
               ],
             );
           }
-          if (index <= _closed.length) {
+          if (_showClosed) {
             final row = _closed[index - 1];
             return ListItem(
               title: Text(_join(row['chains']).isEmpty ? '${row['id']}' : _join(row['chains'])),
               subtitle: Text('${row['removedAt']} · ${row['rule']} · ↑ ${row['upload']} B · ↓ ${row['download']} B'),
             );
           }
-          final row = _chains[index - _closed.length - 1];
+          final row = _chains[index - 1];
           final successful = row['DialSucceeded'] == true;
           final delay = ((row['Duration'] as num?) ?? 0) / 1000000;
           return ListItem(

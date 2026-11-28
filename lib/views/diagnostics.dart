@@ -2,8 +2,6 @@ import 'package:fl_clash/ui/icons/icons.dart';
 import 'package:fl_clash/views/zapret_logs.dart';
 import 'package:fl_clash/views/recovery_history.dart';
 import 'package:fl_clash/views/resources.dart';
-import 'package:fl_clash/views/engine_diagnostics.dart';
-import 'package:fl_clash/views/chain_health.dart';
 import 'package:fl_clash/ui/title_tabs.dart';
 import 'package:fl_clash/views/config/general.dart' show MihomoWatchdogItem;
 import 'package:fl_clash/l10n/l10n.dart';
@@ -198,16 +196,6 @@ class _DiagnosticsViewState extends ConsumerState<DiagnosticsView> {
       ),
       children: [
         generateSection(items: [
-          if (system.isWindows) ListItem.open(
-            title: Text(Localizations.localeOf(context).languageCode == 'ru' ? 'Диагностика ядра' : 'Core diagnostics'),
-            leading: const GlyphIcon(AppGlyphs.cpu),
-            widget: const EngineDiagnosticsView(),
-          ),
-          if (system.isWindows) ListItem.open(
-            title: const Text('Chain Health'),
-            leading: const GlyphIcon(AppGlyphs.cpu),
-            widget: const ChainHealthView(),
-          ),
           ListItem.open(
             title: Text(context.appLocalizations.resources),
             leading: const GlyphIcon(AppGlyphs.resources),

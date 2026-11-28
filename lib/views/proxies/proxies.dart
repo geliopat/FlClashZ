@@ -3,6 +3,8 @@ import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/providers/providers.dart';
 import 'package:fl_clash/ui/icons/icons.dart';
 import 'package:fl_clash/views/proxies/list.dart';
+import 'package:fl_clash/views/chain_health.dart';
+import 'package:fl_clash/views/engine_diagnostics.dart';
 import 'package:fl_clash/widgets/widgets.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,6 +54,23 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
         CommonPopupMenuItem(glyph: AppGlyphs.speed,
           label: ru ? 'Проверить серверы группы' : 'Test group members',
           onPressed: speedReady ? () => ref.read(speedTestProvider.notifier).testGroupMembers(group) : null),
+      ],
+      if (system.isWindows && !widget.picker) ...[
+        CommonPopupMenuItem(
+          glyph: AppGlyphs.latency,
+          label: ru ? 'Проверка каскадов (Chain Health)' : 'Chain Health',
+          onPressed: () => BaseNavigator.push<void>(
+            context, const ChainHealthView(),
+          ),
+        ),
+        CommonPopupMenuItem(
+          glyph: AppGlyphs.cpu,
+          label: ru ? 'Диагностика цепочек' : 'Chain diagnostics',
+          onPressed: () => BaseNavigator.push<void>(
+            context,
+            const EngineDiagnosticsView(section: EngineDiagnosticsSection.chains),
+          ),
+        ),
       ],
       if (_isTab && !ref.watch(oneGroupProvider))
         CommonPopupMenuItem(

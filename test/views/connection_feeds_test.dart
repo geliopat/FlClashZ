@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:fl_clash/core/controller.dart';
+import 'package:fl_clash/views/engine_diagnostics.dart';
 import 'package:fl_clash/core/interface.dart';
 import 'package:fl_clash/enum/enum.dart';
 import 'package:fl_clash/models/models.dart';
@@ -126,7 +129,37 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  test('navigation offers the two feeds as one connections page', () {
+  testWidgets('Windows exposes native closed history in connections', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    container.read(coreStatusProvider.notifier).value = CoreStatus.disconnected;
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const TestApp(child: ConnectionFeedsView()),
+      ),
+    );
+    await settle(tester);
+    if (Platform.isWindows) {
+      await tester.tap(find.text('Closed'));
+      await settle(tester);
+      final history = tester.widget<EngineDiagnosticsView>(
+        find.byType(EngineDiagnosticsView),
+      );
+      expect(history.section, EngineDiagnosticsSection.closed);
+      expect(find.text('Chain diagnostics'), findsNothing);
+      await tester.tap(find.text('Live connections'));
+      await settle(tester);
+      expect(find.byType(ConnectionsView), findsOneWidget);
+    } else {
+      expect(find.text('Closed'), findsNothing);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  test('navigation offers the feeds as one connections page', () {
     final labels = navigation
         .getItems(hasProxies: true)
         .map((item) => item.label);
