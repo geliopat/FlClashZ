@@ -1,5 +1,8 @@
 name: Z3 core integration and full client tests (no publication)
 on:
+  push:
+    branches: [candidate/z3-final-adapter]
+    paths: ['.github/requests/z3-client-test.txt']
   workflow_dispatch:
     inputs:
       scope:
@@ -34,6 +37,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           submodules: true
+      - name: Resolve explicitly requested test scope
+        id: scope
+        shell: pwsh
+        env:
+          REQUESTED_SCOPE: ${{ inputs.scope }}
+        run: |
+          $scope = $env:REQUESTED_SCOPE
+          if ($env:GITHUB_EVENT_NAME -eq 'push') {
+            $request = (Get-Content .github/requests/z3-client-test.txt -Raw).Trim() -split '\s+'
+            if ($request.Count -ne 2 -or $request[1] -cnotmatch '^[0-9]+$') { throw 'Invalid test request' }
+            $scope = $request[0]
+          }
+          if ($scope -cnotin @('core', 'full')) { throw 'Invalid scope' }
+          "scope=$scope" >> $env:GITHUB_OUTPUT
       - name: Verify client uses exact audited host source
         shell: pwsh
         run: |
@@ -153,7 +170,7 @@ jobs:
         id: pub_get
         run: flutter pub get
       - name: Core integration Flutter suite
-        if: inputs.scope == 'core'
+        if: steps.scope.outputs.scope == 'core'
         shell: pwsh
         run: |
           $tests = @(
@@ -180,7 +197,7 @@ jobs:
           flutter test "--dart-define=FLCLASHZ_UPDATE_PUBLIC_KEY=$env:FLCLASHZ_UPDATE_PUBLIC_KEY" @tests
           if ($LASTEXITCODE -ne 0) { throw 'Core integration tests failed' }
       - name: Full Flutter test suite
-        if: inputs.scope == 'full'
+        if: steps.scope.outputs.scope == 'full'
         shell: pwsh
         run: |
           flutter test "--dart-define=FLCLASHZ_UPDATE_PUBLIC_KEY=$env:FLCLASHZ_UPDATE_PUBLIC_KEY"
